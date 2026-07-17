@@ -60,6 +60,43 @@ function renderCustList() {
   $("cust-list").innerHTML = CUSTOMERS.map((c) => `<option value="${(c.name || "").replace(/"/g, "&quot;")}">`).join("");
 }
 
+/* Khách cũ: hiện lịch sử mua (từ công nợ Misa) + thêm nhanh vào báo giá với giá đã chốt */
+let CUR_CUST = null;
+function lookupCustomer() {
+  const v = ($("c-messrs").value || "").trim().toUpperCase();
+  CUR_CUST = CUSTOMERS.find((c) => (c.name || "").toUpperCase() === v) || null;
+  const box = $("cust-history");
+  if (!CUR_CUST || !(CUR_CUST.purchases || []).length) { box.innerHTML = ""; return; }
+  box.innerHTML = `<div style="border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-top:8px;max-height:180px;overflow-y:auto">
+    <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:0.04em;margin-bottom:4px">KHÁCH TỪNG MUA (giá đã chốt lần gần nhất - bấm + để đưa vào báo giá)</div>
+    ${CUR_CUST.purchases.map((p, i) => `<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);font-size:13px;align-items:center">
+      <span>${p.desc}<br><span class="price-age">${p.date} · SL ${fmt(p.qty)}</span></span>
+      <span style="white-space:nowrap"><b class="num">${fmt(p.price)}đ</b>
+      <button class="btn-sub" style="padding:3px 9px;margin-left:6px" onclick="addFromHistory(${i})">+</button></span>
+    </div>`).join("")}
+  </div>`;
+}
+
+function addFromHistory(i) {
+  const p = CUR_CUST?.purchases?.[i];
+  if (!p) return;
+  // thử khớp kho giá để lấy giá mua NCC + thể tích (so lãi)
+  const low = p.desc.toLowerCase();
+  const cat = CATALOG.find((x) => low.includes(x.name.toLowerCase()) || x.name.toLowerCase().includes(low));
+  ITEMS.push({
+    desc: cat ? [cat.name, cat.desc].filter(Boolean).join("\n") : p.desc,
+    unit: cat?.unit || "Cái",
+    qty: p.qty || 1,
+    price: p.price, // giá đã bán cho khách này - giữ nguyên, không auto tính đè
+    manual: true,
+    buyHint: cat?.buyPrice || 0,
+    volume: cat?.volume || 0,
+    note: "",
+  });
+  renderItems();
+  recomputePrices();
+}
+
 function saveLocal() {
   localStorage.setItem(LS_KEY, JSON.stringify(CATALOG));
   renderSupplierFilter();
