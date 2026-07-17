@@ -1,0 +1,25 @@
+{
+  "updated": "2026-07-17",
+  "products": [
+    {
+      "id": "pallet-nhua-1400x1100x150",
+      "name": "Pallet nhựa 1400x1100x150mm",
+      "desc": "Pallet nhựa KT: 1400x1100x150mm\nDung sai kích thước ±5mm\nTải trọng động: 1.500kg / Tải trọng tĩnh: 6.000kg\nChất liệu: HDPE nguyên sinh\nBảo hành: 2 năm",
+      "unit": "Cái",
+      "price": 700000,
+      "priceUpdated": "2026-07-17",
+      "supplier": "",
+      "note": ""
+    },
+    {
+      "id": "pallet-nhua-1200x1000x150",
+      "name": "Pallet nhựa 1200x1000x150mm",
+      "desc": "Pallet nhựa KT: 1200x1000x150mm\nDung sai kích thước ±5mm\nChất liệu: HDPE\nBảo hành: 2 năm",
+      "unit": "Cái",
+      "price": 0,
+      "priceUpdated": "",
+      "supplier": "",
+      "note": "Chưa có giá - cập nhật từ nhóm Zalo"
+    }
+  ]
+}

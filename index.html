@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>ICD - Công cụ tạo báo giá</title>
+<style>
+:root{
+  --dark:#27343A; --orange:#FB7703; --orange-dk:#E8610A;
+  --border:#E5E1DA; --bg:#F6F4F0; --card:#fff; --muted:#6B7280;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--dark);font-size:15px;line-height:1.55}
+header{background:var(--dark);color:#fff;padding:14px 24px;display:flex;align-items:baseline;gap:14px;flex-wrap:nowrap}
+header h1{font-size:19px;letter-spacing:-0.02em;white-space:nowrap}
+header span{color:#B7C2C8;font-size:13px;letter-spacing:0.06em;text-transform:uppercase;white-space:nowrap}
+main{max-width:1180px;margin:22px auto;padding:0 16px;display:grid;grid-template-columns:7fr 5fr;gap:18px}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+section{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:18px 20px;margin-bottom:18px}
+h2{font-size:15px;text-transform:uppercase;letter-spacing:0.06em;border-left:3px solid var(--orange);padding-left:10px;margin-bottom:14px}
+label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin:8px 0 3px;letter-spacing:0.03em}
+input,textarea,select{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:5px;font-size:14px;font-family:inherit;background:#fff;color:var(--dark)}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--orange);outline-offset:-1px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+.items-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13.5px}
+.items-table th{background:var(--dark);color:#fff;padding:7px 8px;text-align:left;font-size:12px;font-weight:600;white-space:nowrap}
+.items-table td{padding:6px 6px;border-bottom:1px solid var(--border);vertical-align:top}
+.items-table input,.items-table textarea{font-size:13px;padding:5px 7px}
+.items-table textarea{min-height:52px;resize:vertical}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14px;padding:9px 16px;white-space:nowrap}
+.btn-main{background:var(--orange);color:#fff;font-size:16px;padding:13px 22px;width:100%;margin-top:14px;letter-spacing:0.02em}
+.btn-main:hover{background:var(--orange-dk)}
+.btn-sub{background:#EDEAE4;color:var(--dark);font-weight:600;font-size:13px;padding:7px 12px}
+.btn-del{background:none;color:#B91C1C;font-size:17px;padding:2px 6px;font-weight:400}
+.pick{display:flex;gap:8px;margin-bottom:8px}
+.pick select{flex:1}
+.totals{margin-top:12px;border-top:2px solid var(--dark);padding-top:10px;font-size:14px}
+.totals div{display:flex;justify-content:space-between;padding:3px 0}
+.totals .grand{font-weight:800;font-size:17px;color:var(--orange-dk)}
+.downloads{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.dl{display:block;text-align:center;background:var(--dark);color:#fff;text-decoration:none;padding:12px 10px;border-radius:6px;font-weight:700;font-size:13.5px}
+.dl:hover{background:#3A4B54}
+.dl small{display:block;font-weight:400;color:#B7C2C8;font-size:11.5px;margin-top:3px}
+.price-age{font-size:11.5px;color:var(--muted)}
+.price-age.stale{color:#B91C1C;font-weight:600}
+.catalog-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 2px;border-bottom:1px solid var(--border);font-size:13.5px}
+.catalog-row b{font-weight:600}
+.hint{font-size:12.5px;color:var(--muted);margin-top:8px}
+.tag{display:inline-block;background:#FFEdd8;color:var(--orange-dk);font-size:11px;font-weight:700;border-radius:4px;padding:1px 7px;letter-spacing:0.04em}
+#status{margin-top:10px;font-size:13.5px;color:var(--muted);min-height:18px}
+</style>
+</head>
+<body>
+<header>
+  <h1>ICD - Công cụ tạo báo giá</h1>
+  <span>Bản test nội bộ</span>
+</header>
+<main>
+<div><!-- CỘT TRÁI -->
+  <section>
+    <h2>1. Khách hàng</h2>
+    <label>Tên khách hàng (Messrs)</label><input id="c-messrs" placeholder="CÔNG TY TNHH ...">
+    <div class="grid2">
+      <div><label>Địa chỉ</label><input id="c-add"></div>
+      <div><label>Người liên hệ (ATTN)</label><input id="c-attn"></div>
+      <div><label>Mobile</label><input id="c-mobile"></div>
+      <div><label>Email</label><input id="c-email"></div>
+      <div><label>Tel</label><input id="c-tel"></div>
+      <div><label>Fax</label><input id="c-fax"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. Sản phẩm báo giá</h2>
+    <div class="pick">
+      <select id="product-pick"></select>
+      <button class="btn-sub" onclick="addItem()">+ Thêm vào báo giá</button>
+    </div>
+    <div class="hint">Giá tự điền theo <span class="tag">giá mới nhất</span> trong kho giá. Sửa trực tiếp được từng dòng.</div>
+    <table class="items-table" id="items"><thead>
+      <tr><th style="width:26px">#</th><th>Mô tả sản phẩm</th><th style="width:60px">ĐVT</th><th style="width:64px">SL</th><th style="width:104px">Đơn giá</th><th style="width:106px">Thành tiền</th><th style="width:30px"></th></tr>
+    </thead><tbody></tbody></table>
+    <div class="totals">
+      <div><span>Tổng chưa VAT</span><b class="num" id="t-sub">0</b></div>
+      <div><span>VAT <select id="vat" style="width:70px;display:inline-block" onchange="recalc()"><option>8</option><option>10</option><option>0</option></select> %</span><b class="num" id="t-vat">0</b></div>
+      <div class="grand"><span>Tổng cộng</span><b class="num" id="t-grand">0</b></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3. Điều khoản</h2>
+    <div class="grid2">
+      <div><label>Số báo giá</label><input id="m-quotNo"></div>
+      <div><label>Ngày</label><input id="m-date"></div>
+      <div><label>Incoterms</label><input id="m-incoterms" value="DAP (Giao hàng tại kho bên mua, đã bao gồm phí vận chuyển)"></div>
+      <div><label>Leadtime</label><input id="m-leadtime" value="1-2 tuần"></div>
+      <div><label>PIC (người phụ trách)</label><input id="m-pic" value="Le Van Thang (0983797186)"></div>
+      <div><label>Nơi giao hàng (Destination)</label><input id="m-destination"></div>
+      <div><label>Thanh toán</label><input id="m-payment" value="100% sau khi giao hàng 30 ngày"></div>
+      <div><label>Hiệu lực đến (Validity)</label><input id="m-validity"></div>
+    </div>
+    <button class="btn-main" onclick="generateAll()">Tạo báo giá - đủ 4 mẫu</button>
+    <div id="status"></div>
+    <div class="downloads" id="downloads"></div>
+  </section>
+</div>
+
+<div><!-- CỘT PHẢI -->
+  <section>
+    <h2>Kho giá (ưu tiên giá mới nhất)</h2>
+    <div id="catalog"></div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button class="btn-sub" onclick="newProduct()">+ Sản phẩm mới</button>
+      <button class="btn-sub" onclick="exportCatalog()">Xuất JSON</button>
+      <button class="btn-sub" onclick="document.getElementById('imp').click()">Nhập JSON</button>
+      <input type="file" id="imp" accept=".json" style="display:none" onchange="importCatalog(this)">
+    </div>
+    <div class="hint">Sales cập nhật giá mới của nhà cung cấp tại đây (hoặc up vào nhóm Zalo "ICD Bảng Giá Bán" - hệ thống chắt lọc hàng ngày). Khi tạo báo giá, công cụ luôn lấy giá có ngày cập nhật mới nhất.</div>
+  </section>
+  <section>
+    <h2>Sửa sản phẩm</h2>
+    <div id="editor"><div class="hint">Chọn sản phẩm trong kho giá để sửa, hoặc bấm "+ Sản phẩm mới".</div></div>
+  </section>
+</div>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="xlsx-fill.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
