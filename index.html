@@ -68,8 +68,9 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
 <div><!-- CỘT TRÁI -->
   <section>
     <h2>1. Khách hàng</h2>
-    <label>Tên khách hàng (bắt buộc - trường duy nhất phải gõ)</label>
-    <input id="c-messrs" placeholder="CÔNG TY TNHH ...">
+    <label>Tên khách hàng (bắt buộc - gõ vài chữ, khách cũ trong Misa sẽ tự gợi ý)</label>
+    <input id="c-messrs" placeholder="CÔNG TY TNHH ..." list="cust-list" autocomplete="off">
+    <datalist id="cust-list"></datalist>
     <details>
       <summary>Chi tiết khách (không bắt buộc): địa chỉ, người liên hệ, SĐT, email...</summary>
       <div class="grid2">
@@ -130,20 +131,18 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
 
 <div><!-- CỘT PHẢI -->
   <section>
-    <h2>Kho giá (ưu tiên giá mới nhất)</h2>
-    <input id="catalog-search" placeholder="Tìm sản phẩm..." oninput="renderCatalog()">
-    <div id="catalog" style="max-height:420px;overflow-y:auto;margin-top:8px"></div>
-    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
-      <button class="btn-sub" onclick="newProduct()">+ Sản phẩm mới</button>
-      <button class="btn-sub" onclick="exportCatalog()">Xuất JSON</button>
+    <h2>Kho giá nội bộ</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn-sub" onclick="document.getElementById('imp').click()">Nhập JSON</button>
+      <button class="btn-sub" onclick="exportCatalog()">Xuất JSON</button>
+      <button class="btn-sub" onclick="newProduct()">+ Sản phẩm mới</button>
       <input type="file" id="imp" accept=".json" style="display:none" onchange="importCatalog(this)">
     </div>
-    <div class="hint">Kho giá nạp từ file JSON nội bộ (danh mục Misa + cập nhật từ nhóm Zalo "ICD Bảng Giá Bán"). Giá mua NCC không đưa lên web công khai - sales bấm "Nhập JSON" để nạp file nội bộ được chia sẻ riêng.</div>
+    <div class="hint">Kho giá + danh sách khách nạp từ file JSON nội bộ (danh mục Misa + cập nhật từ nhóm Zalo "ICD Bảng Giá Bán", ưu tiên giá mới nhất). Giá mua NCC không đưa lên web công khai - sales bấm "Nhập JSON" để nạp file được chia sẻ riêng.</div>
   </section>
   <section>
     <h2>Sửa sản phẩm</h2>
-    <div id="editor"><div class="hint">Chọn sản phẩm trong kho giá để sửa, hoặc bấm "+ Sản phẩm mới".</div></div>
+    <div id="editor"><div class="hint">Bấm "Sửa" ở sản phẩm trong danh sách bên trái, hoặc "+ Sản phẩm mới".</div></div>
   </section>
 </div>
 </main>

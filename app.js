@@ -1,7 +1,9 @@
 /* app.js - UI logic: kho giá (localStorage đè lên products.json, mới nhất thắng),
    dòng báo giá, sinh 4 file xlsx qua XlsxFill. */
 
-let CATALOG = [];           // [{id,name,desc,unit,group,price,buyPrice,stock,priceUpdated,supplier,note}]
+let CATALOG = [];           // [{id,name,desc,unit,group,price,buyPrice,stock,priceUpdated,supplier,note,volume}]
+let CUSTOMERS = [];         // [{code,name}] - từ Misa
+const LS_CUST = "icd-quote-customers-v1";
 let ITEMS = [];             // dòng báo giá
 const LS_KEY = "icd-quote-catalog-v1";
 
@@ -42,14 +44,26 @@ async function loadCatalog() {
   }
   CATALOG = [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "vi"));
   renderSupplierFilter();
-  renderCatalog();
   renderPickList();
+  // khách hàng: localStorage trước, thử data-private (chạy local) sau
+  try { CUSTOMERS = JSON.parse(localStorage.getItem(LS_CUST) || "[]"); } catch (e) {}
+  if (!CUSTOMERS.length) {
+    try {
+      const r = await fetch("data-private/customers.json");
+      if (r.ok) CUSTOMERS = (await r.json()).customers || [];
+    } catch (e) {}
+  }
+  renderCustList();
+}
+
+function renderCustList() {
+  $("cust-list").innerHTML = CUSTOMERS.map((c) => `<option value="${(c.name || "").replace(/"/g, "&quot;")}">`).join("");
 }
 
 function saveLocal() {
   localStorage.setItem(LS_KEY, JSON.stringify(CATALOG));
   renderSupplierFilter();
-  renderCatalog(); renderPickList();
+  renderPickList();
 }
 
 function priceAge(p) {
@@ -62,27 +76,6 @@ function matchSearch(p, q) {
   if (!q) return true;
   const hay = `${p.name} ${p.id} ${p.group || ""} ${p.supplier || ""}`.toLowerCase();
   return q.toLowerCase().split(/\s+/).every((w) => hay.includes(w));
-}
-
-function renderCatalog() {
-  const q = $("catalog-search").value || "";
-  const list = CATALOG.map((p, i) => [p, i]).filter(([p]) => matchSearch(p, q)).slice(0, 100);
-  $("catalog").innerHTML = list.map(([p, i]) => {
-    const age = priceAge(p);
-    const meta = [
-      p.buyPrice ? `<span class="buy">mua NCC: ${fmt(p.buyPrice)}đ</span>` : "",
-      p.stock ? `tồn ${fmt(p.stock)}` : "",
-      p.supplier ? `NCC: ${p.supplier}` : "",
-      p.group || "",
-    ].filter(Boolean).join(" · ");
-    return `<div class="catalog-row">
-      <div><b>${p.name}</b><br><span class="price-age${age.stale ? " stale" : ""}">${age.txt}</span>${meta ? `<br><span class="price-age">${meta}</span>` : ""}</div>
-      <div style="text-align:right;white-space:nowrap"><b class="num">${p.price ? fmt(p.price) + "đ" : "-"}</b><br>
-      <a href="#" onclick="editProduct(${i});return false" style="font-size:12px;color:#E8610A">Sửa</a></div>
-    </div>`;
-  }).join("") || '<div class="hint">Không thấy sản phẩm khớp.</div>';
-  if (CATALOG.filter((p) => matchSearch(p, q)).length > 100)
-    $("catalog").innerHTML += '<div class="hint">... còn nữa - gõ thêm từ khoá để thu hẹp.</div>';
 }
 
 /* QUY ĐỊNH GIÁ (fix theo file "Danh sách Pallet Nhựa" của công ty):
@@ -160,6 +153,7 @@ function renderPickList() {
     return `<label style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer;font-weight:400">
       <input type="checkbox" style="width:auto;margin-top:3px" ${TICKED.has(p.id) ? "checked" : ""} onchange="toggleTick('${String(p.id).replace(/'/g, "\\'")}', this.checked)">
       <span style="flex:1"><b style="font-weight:600">${p.name}</b><br><span class="price-age">${meta}</span></span>
+      <a href="#" onclick="editProduct(${i});return false" style="font-size:12px;color:#E8610A;white-space:nowrap">Sửa</a>
     </label>`;
   }).join("") || '<div class="hint">Không thấy sản phẩm khớp. Nhập JSON kho giá nội bộ nếu danh sách trống.</div>';
   $("tick-count").textContent = TICKED.size;
@@ -227,12 +221,12 @@ function deleteProduct(i) {
 
 function newProduct() {
   CATALOG.push({ id: "", name: "Sản phẩm mới", desc: "", unit: "Cái", group: "", price: 0, buyPrice: 0, stock: 0, priceUpdated: new Date().toISOString().slice(0,10), supplier: "", note: "" });
-  renderCatalog(); renderPickList();
+  renderPickList();
   editProduct(CATALOG.length - 1);
 }
 
 function exportCatalog() {
-  const blob = new Blob([JSON.stringify({ updated: new Date().toISOString().slice(0,10), products: CATALOG }, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify({ updated: new Date().toISOString().slice(0,10), products: CATALOG, customers: CUSTOMERS }, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = "products.json"; a.click();
 }
@@ -243,6 +237,12 @@ function importCatalog(input) {
   r.onload = () => {
     try {
       const data = JSON.parse(r.result);
+      if (Array.isArray(data.customers) && data.customers.length) {
+        const names = new Set(CUSTOMERS.map((c) => c.name));
+        for (const c of data.customers) if (c.name && !names.has(c.name)) CUSTOMERS.push(c);
+        localStorage.setItem(LS_CUST, JSON.stringify(CUSTOMERS));
+        renderCustList();
+      }
       const list = data.products || data;
       for (const p of list) {
         const idx = CATALOG.findIndex((x) => x.id === p.id);
@@ -251,7 +251,7 @@ function importCatalog(input) {
       }
       CATALOG.sort((a, b) => a.name.localeCompare(b.name, "vi"));
       saveLocal();
-      alert(`Đã nhập ${list.length} sản phẩm (giá mới nhất thắng).`);
+      alert(`Đã nhập ${list.length} sản phẩm${(data.customers||[]).length ? " + " + data.customers.length + " khách hàng" : ""} (giá mới nhất thắng).`);
     } catch (e) { alert("File JSON không hợp lệ."); }
   };
   r.readAsText(f);
