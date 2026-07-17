@@ -232,6 +232,7 @@ function renderItems() {
     <td><input type="number" class="num" value="${it.qty}" oninput="ITEMS[${i}].qty=Number(this.value);recalc()"></td>
     <td><input type="number" class="num" value="${it.price}" placeholder="${it.buyHint ? 'mua ' + it.buyHint : ''}" oninput="ITEMS[${i}].price=Number(this.value);recalc()">${it.buyHint ? `<div class="price-age buy">mua NCC: ${fmt(it.buyHint)}</div>` : ""}</td>
     <td class="num" id="line-${i}">${fmt(it.qty * it.price)}</td>
+    <td class="num" id="margin-${i}"></td>
     <td><button class="btn-del" onclick="ITEMS.splice(${i},1);renderItems()">×</button></td>
   </tr>`).join("");
   recalc();
@@ -243,6 +244,16 @@ function recalc() {
     const line = (Number(it.qty) || 0) * (Number(it.price) || 0);
     sub += line;
     const el = $(`line-${i}`); if (el) el.textContent = fmt(line);
+    // tỉ lệ lãi = (giá bán - giá mua NCC) / giá mua NCC
+    const mEl = $(`margin-${i}`);
+    if (mEl) {
+      if (it.buyHint > 0 && it.price > 0) {
+        const pct = (it.price - it.buyHint) / it.buyHint * 100;
+        mEl.textContent = `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`;
+        mEl.style.color = pct < 5 ? "#B91C1C" : "#1B6B3A";
+        mEl.style.fontWeight = "700";
+      } else { mEl.textContent = "-"; mEl.style.color = "#6B7280"; }
+    }
   });
   const vat = Math.round(sub * (Number($("vat").value) || 0) / 100);
   $("t-sub").textContent = fmt(sub);
