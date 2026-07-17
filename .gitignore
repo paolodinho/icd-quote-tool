@@ -1,3 +1,4 @@
 templates/_backup/
 .DS_Store
 ._*
+data-private/
