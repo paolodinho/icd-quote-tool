@@ -88,6 +88,7 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
     <h2>2. Sản phẩm báo giá</h2>
     <div class="pick">
       <input id="product-search" placeholder="Tìm sản phẩm (tên hoặc mã)..." style="flex:2;min-width:200px">
+      <select id="supplier-filter" style="flex:1;min-width:150px" onchange="renderPickList()"><option value="">NCC: tất cả</option></select>
       <span style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap">Lợi nhuận <input id="margin" type="number" value="15" style="width:60px" onchange="renderPickList()"> % <span class="tag auto">auto tính giá</span></span>
     </div>
     <div id="pick-list" style="max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:4px 10px;margin-bottom:8px"></div>
