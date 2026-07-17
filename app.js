@@ -85,15 +85,49 @@ function renderCatalog() {
     $("catalog").innerHTML += '<div class="hint">... còn nữa - gõ thêm từ khoá để thu hẹp.</div>';
 }
 
-/* Giá tự tính: giá bán có sẵn > giá mua NCC + % lợi nhuận (làm tròn nghìn) */
+/* QUY ĐỊNH GIÁ (fix theo file "Danh sách Pallet Nhựa" của công ty):
+   GIÁ BÁN/SP = (Giá NSX + Chi phí vận chuyển/SP) × 1.2
+   Vận chuyển: theo tổng m³ đơn hàng + khoảng cách từ kho ICD.
+   - Ghép xe (tổng < 17 m³): 1-50km 1250 | >50-100km 1000 | >100-300km 600 đ/km/m³, tối thiểu 300.000đ/chuyến
+   - Nguyên xe (≥ 17 m³):    1-50km 1100 | >50-100km 700  | >100-300km 500 đ/km/m³, tối thiểu 500.000đ/chuyến
+   - Trên 300km: liên hệ báo giá vận chuyển riêng. */
+const SHIP = {
+  threshold: 17,
+  ghep: { min: 300000, rates: [[50, 1250], [100, 1000], [300, 600]] },
+  nguyen: { min: 500000, rates: [[50, 1100], [100, 700], [300, 500]] },
+};
+const MARKUP = 1.2;
 const TICKED = new Set();
-function autoPrice(p) {
+
+function autoPrice(p) { // preview trong list (chưa gồm vận chuyển - cần km + SL mới tính được)
   if (p.price) return p.price;
-  if (p.buyPrice) {
-    const m = Number($("margin").value) || 0;
-    return Math.round(p.buyPrice * (1 + m / 100) / 1000) * 1000;
-  }
+  if (p.buyPrice) return Math.round(p.buyPrice * MARKUP);
   return 0;
+}
+
+/* Tính lại đơn giá mọi dòng theo quy định (trừ dòng sales đã sửa tay) */
+function recomputePrices() {
+  const km = Number($("distance").value) || 0;
+  const totalVol = ITEMS.reduce((s, it) => s + (Number(it.volume) || 0) * (Number(it.qty) || 0), 0);
+  let over300 = false, shipPerVol = 0; // đ cho mỗi m³
+  if (km > 300) over300 = true;
+  else if (km > 0 && totalVol > 0) {
+    const cfg = totalVol < SHIP.threshold ? SHIP.ghep : SHIP.nguyen;
+    const rate = (cfg.rates.find(([max]) => km <= max) || cfg.rates[2])[1];
+    const totalShip = Math.max(rate * totalVol * km, cfg.min);
+    shipPerVol = totalShip / totalVol;
+  }
+  ITEMS.forEach((it, i) => {
+    if (it.manual) return;
+    if (!(it.buyHint > 0)) return;
+    const shipPerSP = (Number(it.volume) || 0) * shipPerVol;
+    it.price = Math.round((it.buyHint + shipPerSP) * MARKUP);
+    const inp = $(`price-${i}`); if (inp && document.activeElement !== inp) inp.value = it.price;
+  });
+  $("status").textContent = over300
+    ? "Trên 300 km: quy định yêu cầu liên hệ báo giá vận chuyển riêng - giá đang tính CHƯA gồm vận chuyển."
+    : (km > 0 && totalVol === 0 && ITEMS.length ? "Các SP trong báo giá chưa có thể tích (m³) - chưa tính được vận chuyển, giá = giá NSX × 1.2." : "");
+  recalc();
 }
 
 function renderSupplierFilter() {
@@ -141,11 +175,12 @@ function addSelected() {
   for (const id of TICKED) {
     const p = CATALOG.find((x) => String(x.id) === String(id));
     if (!p) continue;
-    ITEMS.push({ desc: [p.name, p.desc].filter(Boolean).join("\n"), unit: p.unit || "Cái", qty: 100, price: autoPrice(p), buyHint: p.buyPrice || 0, note: "" });
+    ITEMS.push({ desc: [p.name, p.desc].filter(Boolean).join("\n"), unit: p.unit || "Cái", qty: 100, price: autoPrice(p), buyHint: p.buyPrice || 0, volume: p.volume || 0, manual: false, note: "" });
   }
   TICKED.clear();
   renderPickList();
   renderItems();
+  recomputePrices();
 }
 
 function editProduct(i) {
@@ -229,11 +264,11 @@ function renderItems() {
     <td>${i + 1}</td>
     <td><textarea oninput="ITEMS[${i}].desc=this.value">${it.desc}</textarea></td>
     <td><input value="${it.unit}" oninput="ITEMS[${i}].unit=this.value"></td>
-    <td><input type="number" class="num" value="${it.qty}" oninput="ITEMS[${i}].qty=Number(this.value);recalc()"></td>
-    <td><input type="number" class="num" value="${it.price}" placeholder="${it.buyHint ? 'mua ' + it.buyHint : ''}" oninput="ITEMS[${i}].price=Number(this.value);recalc()">${it.buyHint ? `<div class="price-age buy">mua NCC: ${fmt(it.buyHint)}</div>` : ""}</td>
+    <td><input type="number" class="num" value="${it.qty}" oninput="ITEMS[${i}].qty=Number(this.value);recomputePrices()"></td>
+    <td><input type="number" class="num" id="price-${i}" value="${it.price}" placeholder="${it.buyHint ? 'mua ' + it.buyHint : ''}" oninput="ITEMS[${i}].price=Number(this.value);ITEMS[${i}].manual=true;recalc()">${it.buyHint ? `<div class="price-age buy">mua NCC: ${fmt(it.buyHint)}</div>` : ""}</td>
     <td class="num" id="line-${i}">${fmt(it.qty * it.price)}</td>
     <td class="num" id="margin-${i}"></td>
-    <td><button class="btn-del" onclick="ITEMS.splice(${i},1);renderItems()">×</button></td>
+    <td><button class="btn-del" onclick="ITEMS.splice(${i},1);renderItems();recomputePrices()">×</button></td>
   </tr>`).join("");
   recalc();
 }
