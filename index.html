@@ -118,7 +118,12 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
         <div><label>Số báo giá <span class="tag auto">tự sinh</span></label><input id="m-quotNo" oninput="syncAuto()"></div>
         <div><label>Ngày <span class="tag auto">tự sinh</span></label><input id="m-date" oninput="syncAuto()"></div>
         <div><label>Hiệu lực đến <span class="tag auto">tự sinh: +30 ngày</span></label><input id="m-validity" oninput="syncAuto()"></div>
-        <div><label>PIC <span class="tag auto">mặc định</span></label><input id="m-pic" value="Le Van Thang (0983797186)"></div>
+        <div><label>PIC <span class="tag auto">mặc định</span></label><input id="m-pic" value="Le Van Thang (0983797186)" list="pic-list" autocomplete="off">
+        <datalist id="pic-list">
+          <option value="Le Van Thang (0983797186)">
+          <option value="Đỗ Thị Thanh Huyền">
+          <option value="Đỗ Thị Thu Trang">
+        </datalist></div>
         <div><label>Incoterms <span class="tag auto">mặc định</span></label><input id="m-incoterms" value="DAP (Giao hàng tại kho bên mua, đã bao gồm phí vận chuyển)"></div>
         <div><label>Leadtime <span class="tag auto">mặc định</span></label><input id="m-leadtime" value="1-2 tuần"></div>
         <div><label>Thanh toán <span class="tag auto">mặc định</span></label><input id="m-payment" value="100% sau khi giao hàng 30 ngày"></div>
