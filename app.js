@@ -42,12 +42,12 @@ async function loadCatalog() {
   }
   CATALOG = [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "vi"));
   renderCatalog();
-  renderPick();
+  renderPickList();
 }
 
 function saveLocal() {
   localStorage.setItem(LS_KEY, JSON.stringify(CATALOG));
-  renderCatalog(); renderPick();
+  renderCatalog(); renderPickList();
 }
 
 function priceAge(p) {
@@ -83,13 +83,51 @@ function renderCatalog() {
     $("catalog").innerHTML += '<div class="hint">... còn nữa - gõ thêm từ khoá để thu hẹp.</div>';
 }
 
-function renderPick() {
+/* Giá tự tính: giá bán có sẵn > giá mua NCC + % lợi nhuận (làm tròn nghìn) */
+const TICKED = new Set();
+function autoPrice(p) {
+  if (p.price) return p.price;
+  if (p.buyPrice) {
+    const m = Number($("margin").value) || 0;
+    return Math.round(p.buyPrice * (1 + m / 100) / 1000) * 1000;
+  }
+  return 0;
+}
+
+function renderPickList() {
   const q = $("product-search").value || "";
-  const list = CATALOG.map((p, i) => [p, i]).filter(([p]) => matchSearch(p, q)).slice(0, 60);
-  $("product-pick").innerHTML = list.map(([p, i]) => {
-    const bits = [p.price ? `bán ${fmt(p.price)}` : (p.buyPrice ? `mua ${fmt(p.buyPrice)}` : "chưa có giá"), p.stock ? `tồn ${p.stock}` : ""].filter(Boolean).join(" / ");
-    return `<option value="${i}">${p.name} (${bits})</option>`;
-  }).join("");
+  const list = CATALOG.map((p, i) => [p, i]).filter(([p]) => matchSearch(p, q)).slice(0, 80);
+  $("pick-list").innerHTML = list.map(([p, i]) => {
+    const ap = autoPrice(p);
+    const meta = [
+      p.buyPrice ? `<span class="buy">mua ${fmt(p.buyPrice)}</span>` : "",
+      p.price ? `bán ${fmt(p.price)}` : (ap ? `auto ${fmt(ap)}` : "chưa có giá"),
+      p.stock ? `tồn ${fmt(p.stock)}` : "",
+      p.supplier ? `NCC: ${p.supplier}` : "",
+    ].filter(Boolean).join(" · ");
+    return `<label style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer;font-weight:400">
+      <input type="checkbox" style="width:auto;margin-top:3px" ${TICKED.has(p.id) ? "checked" : ""} onchange="toggleTick('${String(p.id).replace(/'/g, "\\'")}', this.checked)">
+      <span style="flex:1"><b style="font-weight:600">${p.name}</b><br><span class="price-age">${meta}</span></span>
+    </label>`;
+  }).join("") || '<div class="hint">Không thấy sản phẩm khớp. Nhập JSON kho giá nội bộ nếu danh sách trống.</div>';
+  $("tick-count").textContent = TICKED.size;
+}
+
+function toggleTick(id, on) {
+  if (on) TICKED.add(id); else TICKED.delete(id);
+  $("tick-count").textContent = TICKED.size;
+}
+
+function addSelected() {
+  if (!TICKED.size) { alert("Tick chọn ít nhất 1 sản phẩm trong danh sách."); return; }
+  for (const id of TICKED) {
+    const p = CATALOG.find((x) => String(x.id) === String(id));
+    if (!p) continue;
+    ITEMS.push({ desc: [p.name, p.desc].filter(Boolean).join("\n"), unit: p.unit || "Cái", qty: 100, price: autoPrice(p), buyHint: p.buyPrice || 0, note: "" });
+  }
+  TICKED.clear();
+  renderPickList();
+  renderItems();
 }
 
 function editProduct(i) {
@@ -136,7 +174,7 @@ function deleteProduct(i) {
 
 function newProduct() {
   CATALOG.push({ id: "", name: "Sản phẩm mới", desc: "", unit: "Cái", group: "", price: 0, buyPrice: 0, stock: 0, priceUpdated: new Date().toISOString().slice(0,10), supplier: "", note: "" });
-  renderCatalog(); renderPick();
+  renderCatalog(); renderPickList();
   editProduct(CATALOG.length - 1);
 }
 
@@ -167,13 +205,6 @@ function importCatalog(input) {
 }
 
 /* ---------- Dòng báo giá ---------- */
-function addItem() {
-  const p = CATALOG[Number($("product-pick").value)];
-  if (!p) return;
-  ITEMS.push({ desc: [p.name, p.desc].filter(Boolean).join("\n"), unit: p.unit || "Cái", qty: 100, price: p.price || 0, buyHint: p.buyPrice || 0, note: "" });
-  renderItems();
-}
-
 function renderItems() {
   const tb = $("items").querySelector("tbody");
   tb.innerHTML = ITEMS.map((it, i) => `<tr>
@@ -237,5 +268,5 @@ $("m-date").value = today();
 $("m-validity").value = plusDays(30);
 $("m-quotNo").value = autoQuotNo();
 syncAuto();
-$("product-search").addEventListener("input", renderPick);
+$("product-search").addEventListener("input", renderPickList);
 loadCatalog();
