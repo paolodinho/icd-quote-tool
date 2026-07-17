@@ -23,6 +23,9 @@ label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin:8
 input,textarea,select{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:5px;font-size:14px;font-family:inherit;background:#fff;color:var(--dark)}
 input:focus,textarea:focus,select:focus{outline:2px solid var(--orange);outline-offset:-1px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+details{margin-top:10px;border:1px dashed var(--border);border-radius:6px;padding:8px 12px}
+details summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--muted)}
+details[open] summary{margin-bottom:6px}
 .items-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13.5px}
 .items-table th{background:var(--dark);color:#fff;padding:7px 8px;text-align:left;font-size:12px;font-weight:600;white-space:nowrap}
 .items-table td{padding:6px 6px;border-bottom:1px solid var(--border);vertical-align:top}
@@ -34,8 +37,8 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
 .btn-main:hover{background:var(--orange-dk)}
 .btn-sub{background:#EDEAE4;color:var(--dark);font-weight:600;font-size:13px;padding:7px 12px}
 .btn-del{background:none;color:#B91C1C;font-size:17px;padding:2px 6px;font-weight:400}
-.pick{display:flex;gap:8px;margin-bottom:8px}
-.pick select{flex:1}
+.pick{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.pick select{flex:1;min-width:220px}
 .totals{margin-top:12px;border-top:2px solid var(--dark);padding-top:10px;font-size:14px}
 .totals div{display:flex;justify-content:space-between;padding:3px 0}
 .totals .grand{font-weight:800;font-size:17px;color:var(--orange-dk)}
@@ -49,7 +52,11 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
 .catalog-row b{font-weight:600}
 .hint{font-size:12.5px;color:var(--muted);margin-top:8px}
 .tag{display:inline-block;background:#FFEdd8;color:var(--orange-dk);font-size:11px;font-weight:700;border-radius:4px;padding:1px 7px;letter-spacing:0.04em}
+.tag.auto{background:#E4EEE7;color:#1B6B3A}
+.buy{color:#1B6B3A;font-weight:600}
 #status{margin-top:10px;font-size:13.5px;color:var(--muted);min-height:18px}
+.auto-line{display:flex;gap:8px;flex-wrap:wrap;font-size:13px;margin-top:6px;color:var(--muted);align-items:center}
+.auto-line b{color:var(--dark)}
 </style>
 </head>
 <body>
@@ -61,24 +68,30 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
 <div><!-- CỘT TRÁI -->
   <section>
     <h2>1. Khách hàng</h2>
-    <label>Tên khách hàng (Messrs)</label><input id="c-messrs" placeholder="CÔNG TY TNHH ...">
-    <div class="grid2">
-      <div><label>Địa chỉ</label><input id="c-add"></div>
-      <div><label>Người liên hệ (ATTN)</label><input id="c-attn"></div>
-      <div><label>Mobile</label><input id="c-mobile"></div>
-      <div><label>Email</label><input id="c-email"></div>
-      <div><label>Tel</label><input id="c-tel"></div>
-      <div><label>Fax</label><input id="c-fax"></div>
-    </div>
+    <label>Tên khách hàng (bắt buộc - trường duy nhất phải gõ)</label>
+    <input id="c-messrs" placeholder="CÔNG TY TNHH ...">
+    <details>
+      <summary>Chi tiết khách (không bắt buộc): địa chỉ, người liên hệ, SĐT, email...</summary>
+      <div class="grid2">
+        <div><label>Địa chỉ</label><input id="c-add"></div>
+        <div><label>Người liên hệ (ATTN)</label><input id="c-attn"></div>
+        <div><label>Mobile</label><input id="c-mobile"></div>
+        <div><label>Email</label><input id="c-email"></div>
+        <div><label>Tel</label><input id="c-tel"></div>
+        <div><label>Fax</label><input id="c-fax"></div>
+        <div><label>Nơi giao hàng (Destination)</label><input id="m-destination"></div>
+      </div>
+    </details>
   </section>
 
   <section>
     <h2>2. Sản phẩm báo giá</h2>
     <div class="pick">
+      <input id="product-search" placeholder="Gõ để tìm trong kho giá (tên hoặc mã)..." style="flex:2;min-width:200px">
       <select id="product-pick"></select>
-      <button class="btn-sub" onclick="addItem()">+ Thêm vào báo giá</button>
+      <button class="btn-sub" onclick="addItem()">+ Thêm</button>
     </div>
-    <div class="hint">Giá tự điền theo <span class="tag">giá mới nhất</span> trong kho giá. Sửa trực tiếp được từng dòng.</div>
+    <div class="hint">Giá bán tự điền theo <span class="tag">giá mới nhất</span>. Ô đơn giá hiện gợi ý <span class="buy">giá mua NCC</span> khi chưa có giá bán.</div>
     <table class="items-table" id="items"><thead>
       <tr><th style="width:26px">#</th><th>Mô tả sản phẩm</th><th style="width:60px">ĐVT</th><th style="width:64px">SL</th><th style="width:104px">Đơn giá</th><th style="width:106px">Thành tiền</th><th style="width:30px"></th></tr>
     </thead><tbody></tbody></table>
@@ -87,20 +100,24 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
       <div><span>VAT <select id="vat" style="width:70px;display:inline-block" onchange="recalc()"><option>8</option><option>10</option><option>0</option></select> %</span><b class="num" id="t-vat">0</b></div>
       <div class="grand"><span>Tổng cộng</span><b class="num" id="t-grand">0</b></div>
     </div>
-  </section>
-
-  <section>
-    <h2>3. Điều khoản</h2>
-    <div class="grid2">
-      <div><label>Số báo giá</label><input id="m-quotNo"></div>
-      <div><label>Ngày</label><input id="m-date"></div>
-      <div><label>Incoterms</label><input id="m-incoterms" value="DAP (Giao hàng tại kho bên mua, đã bao gồm phí vận chuyển)"></div>
-      <div><label>Leadtime</label><input id="m-leadtime" value="1-2 tuần"></div>
-      <div><label>PIC (người phụ trách)</label><input id="m-pic" value="Le Van Thang (0983797186)"></div>
-      <div><label>Nơi giao hàng (Destination)</label><input id="m-destination"></div>
-      <div><label>Thanh toán</label><input id="m-payment" value="100% sau khi giao hàng 30 ngày"></div>
-      <div><label>Hiệu lực đến (Validity)</label><input id="m-validity"></div>
+    <div class="auto-line">
+      <span class="tag auto">TỰ SINH</span>
+      <span>Số báo giá: <b id="show-quotNo"></b></span>
+      <span>Ngày: <b id="show-date"></b></span>
+      <span>Hiệu lực: <b id="show-validity"></b></span>
     </div>
+    <details>
+      <summary>Điều khoản (tự sinh sẵn - chỉ mở khi cần sửa)</summary>
+      <div class="grid2">
+        <div><label>Số báo giá <span class="tag auto">tự sinh</span></label><input id="m-quotNo" oninput="syncAuto()"></div>
+        <div><label>Ngày <span class="tag auto">tự sinh</span></label><input id="m-date" oninput="syncAuto()"></div>
+        <div><label>Hiệu lực đến <span class="tag auto">tự sinh: +30 ngày</span></label><input id="m-validity" oninput="syncAuto()"></div>
+        <div><label>PIC <span class="tag auto">mặc định</span></label><input id="m-pic" value="Le Van Thang (0983797186)"></div>
+        <div><label>Incoterms <span class="tag auto">mặc định</span></label><input id="m-incoterms" value="DAP (Giao hàng tại kho bên mua, đã bao gồm phí vận chuyển)"></div>
+        <div><label>Leadtime <span class="tag auto">mặc định</span></label><input id="m-leadtime" value="1-2 tuần"></div>
+        <div><label>Thanh toán <span class="tag auto">mặc định</span></label><input id="m-payment" value="100% sau khi giao hàng 30 ngày"></div>
+      </div>
+    </details>
     <button class="btn-main" onclick="generateAll()">Tạo báo giá - đủ 4 mẫu</button>
     <div id="status"></div>
     <div class="downloads" id="downloads"></div>
@@ -110,14 +127,15 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
 <div><!-- CỘT PHẢI -->
   <section>
     <h2>Kho giá (ưu tiên giá mới nhất)</h2>
-    <div id="catalog"></div>
+    <input id="catalog-search" placeholder="Tìm sản phẩm..." oninput="renderCatalog()">
+    <div id="catalog" style="max-height:420px;overflow-y:auto;margin-top:8px"></div>
     <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
       <button class="btn-sub" onclick="newProduct()">+ Sản phẩm mới</button>
       <button class="btn-sub" onclick="exportCatalog()">Xuất JSON</button>
       <button class="btn-sub" onclick="document.getElementById('imp').click()">Nhập JSON</button>
       <input type="file" id="imp" accept=".json" style="display:none" onchange="importCatalog(this)">
     </div>
-    <div class="hint">Sales cập nhật giá mới của nhà cung cấp tại đây (hoặc up vào nhóm Zalo "ICD Bảng Giá Bán" - hệ thống chắt lọc hàng ngày). Khi tạo báo giá, công cụ luôn lấy giá có ngày cập nhật mới nhất.</div>
+    <div class="hint">Kho giá nạp từ file JSON nội bộ (danh mục Misa + cập nhật từ nhóm Zalo "ICD Bảng Giá Bán"). Giá mua NCC không đưa lên web công khai - sales bấm "Nhập JSON" để nạp file nội bộ được chia sẻ riêng.</div>
   </section>
   <section>
     <h2>Sửa sản phẩm</h2>
