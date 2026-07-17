@@ -28,11 +28,17 @@ function syncAuto() {
 
 /* ---------- Kho giá ---------- */
 async function loadCatalog() {
+  // Nguồn chính: dữ liệu đã giải mã qua cổng mật khẩu (window.__DATA).
+  // Dự phòng khi chạy local không mã hóa: fetch data/products.json + data-private.
   let base = [];
-  try {
-    const res = await fetch("data/products.json");
-    base = (await res.json()).products || [];
-  } catch (e) { /* offline: dùng localStorage */ }
+  if (window.__DATA && Array.isArray(window.__DATA.products)) {
+    base = window.__DATA.products;
+  } else {
+    try {
+      const res = await fetch("data/products.json");
+      base = (await res.json()).products || [];
+    } catch (e) { /* offline: dùng localStorage */ }
+  }
   let local = [];
   try { local = JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch (e) {}
   // merge theo id - bản có priceUpdated mới hơn thắng
@@ -45,8 +51,11 @@ async function loadCatalog() {
   CATALOG = [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "vi"));
   renderSupplierFilter();
   renderPickList();
-  // khách hàng: localStorage trước, thử data-private (chạy local) sau
-  try { CUSTOMERS = JSON.parse(localStorage.getItem(LS_CUST) || "[]"); } catch (e) {}
+  // khách hàng: từ dữ liệu giải mã trước, rồi localStorage, rồi data-private (chạy local)
+  CUSTOMERS = (window.__DATA && Array.isArray(window.__DATA.customers)) ? window.__DATA.customers : [];
+  if (!CUSTOMERS.length) {
+    try { CUSTOMERS = JSON.parse(localStorage.getItem(LS_CUST) || "[]"); } catch (e) {}
+  }
   if (!CUSTOMERS.length) {
     try {
       const r = await fetch("data-private/customers.json");
@@ -66,6 +75,8 @@ function lookupCustomer() {
   const v = ($("c-messrs").value || "").trim().toUpperCase();
   CUR_CUST = CUSTOMERS.find((c) => (c.name || "").toUpperCase() === v) || null;
   const box = $("cust-history");
+  // Khách đã có -> tự đồng bộ chi tiết (địa chỉ, người liên hệ, SĐT, email...) nếu dữ liệu có.
+  if (CUR_CUST) syncCustomerFields(CUR_CUST);
   if (!CUR_CUST || !(CUR_CUST.purchases || []).length) { box.innerHTML = ""; return; }
   box.innerHTML = `<div style="border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-top:8px;max-height:180px;overflow-y:auto">
     <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:0.04em;margin-bottom:4px">KHÁCH TỪNG MUA (giá đã chốt lần gần nhất - bấm + để đưa vào báo giá)</div>
@@ -75,6 +86,25 @@ function lookupCustomer() {
       <button class="btn-sub" style="padding:3px 9px;margin-left:6px" onclick="addFromHistory(${i})">+</button></span>
     </div>`).join("")}
   </div>`;
+}
+
+// Đồng bộ chi tiết khách cũ vào form (chỉ điền field có dữ liệu, không xoá cái đang gõ).
+function syncCustomerFields(c) {
+  const map = {
+    "c-add": c.address || c.diachi,
+    "c-attn": c.attn || c.contact || c.nguoi_lien_he,
+    "c-mobile": c.mobile || c.phone || c.sdt,
+    "c-email": c.email,
+    "c-tel": c.tel,
+    "c-fax": c.fax,
+    "m-destination": c.destination || c.noi_giao || c.address || c.diachi,
+  };
+  let filled = false;
+  for (const [id, val] of Object.entries(map)) {
+    if (val && $(id)) { $(id).value = val; filled = true; }
+  }
+  // nếu có dữ liệu chi tiết -> mở sẵn ô "Chi tiết khách" để thấy
+  if (filled) { const d = document.querySelector("#c-messrs")?.closest("section")?.querySelector("details"); if (d) d.open = true; }
 }
 
 function addFromHistory(i) {
@@ -214,7 +244,7 @@ function addSelected() {
   recomputePrices();
 }
 
-function editProduct(i) {
+function editProduct(i, isNew) {
   const p = CATALOG[i];
   $("editor").innerHTML = `
     <label>Tên sản phẩm</label><input id="e-name" value="${(p.name||"").replace(/"/g,'&quot;')}">
@@ -230,13 +260,28 @@ function editProduct(i) {
     </div>
     <div style="display:flex;gap:8px;margin-top:12px">
       <button class="btn-sub" style="background:#FB7703;color:#fff" onclick="saveProduct(${i})">Lưu</button>
-      <button class="btn-sub" onclick="deleteProduct(${i})">Xoá</button>
+      <button class="btn-sub" onclick="cancelEdit(${isNew ? i : -1})">Huỷ</button>
+      <button class="btn-del" onclick="deleteProduct(${i})">Xoá</button>
     </div>`;
+}
+
+// Huỷ: đóng editor về trạng thái trống. Nếu là SP mới chưa lưu (newIdx>=0) thì bỏ luôn khỏi kho.
+function cancelEdit(newIdx) {
+  if (newIdx >= 0 && CATALOG[newIdx] && !CATALOG[newIdx].id) {
+    CATALOG.splice(newIdx, 1);
+    renderPickList();
+  }
+  resetEditor();
+}
+function resetEditor() {
+  $("editor").innerHTML = '<div class="hint">Bấm "Sửa" ở sản phẩm trong danh sách bên trái, hoặc "+ Sản phẩm mới".</div>';
 }
 
 function saveProduct(i) {
   const p = CATALOG[i];
-  p.name = $("e-name").value.trim();
+  const nm = $("e-name").value.trim();
+  if (!nm) { alert("Nhập tên sản phẩm."); return; }
+  p.name = nm;
   p.desc = $("e-desc").value;
   p.unit = $("e-unit").value.trim() || "Cái";
   p.group = $("e-group").value.trim();
@@ -247,19 +292,22 @@ function saveProduct(i) {
   p.stock = Number($("e-stock").value) || 0;
   if (!p.id) p.id = p.name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/đ/g,"d").replace(/[^a-z0-9]+/g,"-");
   saveLocal();
+  renderSupplierFilter();
+  renderPickList();
   $("editor").innerHTML = '<div class="hint">Đã lưu. Giá mới sẽ được ưu tiên khi tạo báo giá.</div>';
 }
 
 function deleteProduct(i) {
   if (!confirm("Xoá sản phẩm này khỏi kho giá?")) return;
   CATALOG.splice(i, 1); saveLocal();
-  $("editor").innerHTML = "";
+  renderPickList();
+  resetEditor();
 }
 
 function newProduct() {
-  CATALOG.push({ id: "", name: "Sản phẩm mới", desc: "", unit: "Cái", group: "", price: 0, buyPrice: 0, stock: 0, priceUpdated: new Date().toISOString().slice(0,10), supplier: "", note: "" });
+  CATALOG.push({ id: "", name: "", desc: "", unit: "Cái", group: "", price: 0, buyPrice: 0, stock: 0, priceUpdated: new Date().toISOString().slice(0,10), supplier: "", note: "" });
   renderPickList();
-  editProduct(CATALOG.length - 1);
+  editProduct(CATALOG.length - 1, true);
 }
 
 function exportCatalog() {
@@ -365,9 +413,15 @@ async function generateAll() {
 }
 
 /* ---------- Init ---------- */
-$("m-date").value = today();
-$("m-validity").value = plusDays(30);
-$("m-quotNo").value = autoQuotNo();
-syncAuto();
-$("product-search").addEventListener("input", renderPickList);
-loadCatalog();
+function bootApp() {
+  $("m-date").value = today();
+  $("m-validity").value = plusDays(30);
+  $("m-quotNo").value = autoQuotNo();
+  syncAuto();
+  $("product-search").addEventListener("input", renderPickList);
+  loadCatalog();
+}
+window.bootApp = bootApp;
+// Chạy local không có cổng mật khẩu (mở file trực tiếp / dev): tự boot.
+// Trên bản có cổng, crypto-gate.js sẽ gọi bootApp() sau khi giải mã.
+if (!document.getElementById("gate")) bootApp();

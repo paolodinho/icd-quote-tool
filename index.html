@@ -60,6 +60,17 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
 </style>
 </head>
 <body>
+<div id="gate" style="position:fixed;inset:0;background:#27343A;display:flex;align-items:center;justify-content:center;z-index:999">
+  <div style="background:#fff;border-radius:12px;padding:34px 32px;width:340px;max-width:90vw;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.3)">
+    <div style="font-size:19px;font-weight:800;color:#27343A;margin-bottom:4px">ICD - Công cụ báo giá</div>
+    <div style="font-size:13px;color:#6B7280;margin-bottom:18px">Nhập mật khẩu để mở công cụ</div>
+    <input id="gate-pass" type="password" placeholder="Mật khẩu" autocomplete="off"
+      style="width:100%;padding:11px 12px;border:1px solid #E5E1DA;border-radius:6px;font-size:15px;text-align:center">
+    <button id="gate-btn" style="width:100%;margin-top:12px;background:#FB7703;color:#fff;border:none;border-radius:6px;font-weight:700;font-size:15px;padding:11px;cursor:pointer">Mở khóa</button>
+    <div id="gate-msg" style="font-size:12.5px;color:#6B7280;margin-top:10px;min-height:16px"></div>
+  </div>
+</div>
+<div id="app-root" style="display:none">
 <header>
   <h1>ICD - Công cụ tạo báo giá</h1>
   <span>Bản test nội bộ</span>
@@ -152,8 +163,10 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
   </section>
 </div>
 </main>
+</div><!-- /#app-root -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="xlsx-fill.js"></script>
+<script src="crypto-gate.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

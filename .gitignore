@@ -3,3 +3,8 @@ templates/_backup/
 ._*
 data-private/
 data/*.bak-*
+
+# bản mã test - chỉ push khi có mật khẩu thật
+data-enc.json
+# plaintext catalog - không đưa lên public, chỉ dùng data-enc.json
+data/
