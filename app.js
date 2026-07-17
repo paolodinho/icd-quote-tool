@@ -41,12 +41,14 @@ async function loadCatalog() {
     if (!cur || (p.priceUpdated || "") >= (cur.priceUpdated || "")) map.set(p.id, p);
   }
   CATALOG = [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "vi"));
+  renderSupplierFilter();
   renderCatalog();
   renderPickList();
 }
 
 function saveLocal() {
   localStorage.setItem(LS_KEY, JSON.stringify(CATALOG));
+  renderSupplierFilter();
   renderCatalog(); renderPickList();
 }
 
@@ -94,9 +96,25 @@ function autoPrice(p) {
   return 0;
 }
 
+function renderSupplierFilter() {
+  const cur = $("supplier-filter").value;
+  const sups = [...new Set(CATALOG.map((p) => (p.supplier || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "vi"));
+  $("supplier-filter").innerHTML = '<option value="">NCC: tất cả</option>'
+    + sups.map((s) => `<option value="${s.replace(/"/g, "&quot;")}">${s}</option>`).join("")
+    + '<option value="__none__">Chưa rõ NCC</option>';
+  $("supplier-filter").value = cur && [...$("supplier-filter").options].some((o) => o.value === cur) ? cur : "";
+}
+
+function matchSupplier(p) {
+  const f = $("supplier-filter").value;
+  if (!f) return true;
+  if (f === "__none__") return !(p.supplier || "").trim();
+  return (p.supplier || "").trim() === f;
+}
+
 function renderPickList() {
   const q = $("product-search").value || "";
-  const list = CATALOG.map((p, i) => [p, i]).filter(([p]) => matchSearch(p, q)).slice(0, 80);
+  const list = CATALOG.map((p, i) => [p, i]).filter(([p]) => matchSearch(p, q) && matchSupplier(p)).slice(0, 80);
   $("pick-list").innerHTML = list.map(([p, i]) => {
     const ap = autoPrice(p);
     const meta = [
