@@ -101,7 +101,7 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
     <h2>2. Sản phẩm báo giá</h2>
     <div class="pick">
       <input id="product-search" placeholder="Tìm sản phẩm (tên hoặc mã)..." style="flex:2;min-width:200px">
-      <select id="supplier-filter" style="flex:1;min-width:150px" onchange="renderPickList()"><option value="">NCC: tất cả</option></select>
+      <select id="supplier-filter" style="flex:1;min-width:150px" onchange="renderPickList();updateSupplierInfo()"><option value="">NCC: tất cả</option></select>
       <span style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap">Giao cách kho <input id="distance" type="number" value="" placeholder="km" style="width:60px" oninput="recomputePrices()"> km
         <button class="btn-sub" style="padding:5px 9px;font-size:12px" onclick="calcDistance()" title="Tự tính km từ kho ICD Hà Nội tới địa chỉ khách">Tính km</button>
         <a id="gmap-link" href="#" target="_blank" rel="noopener" style="font-size:12px;color:var(--orange-dk);display:none">mở Google Maps</a></span>
@@ -112,6 +112,7 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
       <span style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap">Phụ phí Bắc-Nam <input id="cross-fee" type="number" value="80000" style="width:80px" oninput="recomputePrices()"> đ/pallet</span>
       <span class="tag auto">tự cộng khi NCC khác miền khách · (giá NSX + VC) × 1.2</span>
     </div>
+    <div id="sup-info" style="font-size:12.5px;color:var(--muted);margin:0 0 6px;display:none"></div>
     <div id="pick-list" style="max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:4px 10px;margin-bottom:8px"></div>
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">
       <button class="btn-sub" style="background:var(--dark);color:#fff" onclick="addSelected()">Đưa lên báo giá (<span id="tick-count">0</span> SP đã tick)</button>
