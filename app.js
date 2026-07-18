@@ -481,17 +481,22 @@ function recalc() {
   $("t-sub").textContent = fmt(sub);
   $("t-vat").textContent = fmt(vat);
   $("t-grand").textContent = fmt(sub + vat);
+  if (window.renderCurrentPreview) renderCurrentPreview();
 }
 
 /* ---------- Sinh 4 mẫu ---------- */
-async function generateAll() {
-  if (!ITEMS.length) { alert("Chưa có sản phẩm nào trong báo giá."); return; }
-  if (!$("c-messrs").value.trim()) { alert("Nhập tên khách hàng."); return; }
-  const quote = {
+function buildQuote() {
+  return {
     customer: { messrs: $("c-messrs").value, add: $("c-add").value, tel: $("c-tel").value, fax: $("c-fax").value, attn: $("c-attn").value, mobile: $("c-mobile").value, email: $("c-email").value },
     meta: { quotNo: $("m-quotNo").value, date: $("m-date").value, incoterms: $("m-incoterms").value, leadtime: $("m-leadtime").value, pic: $("m-pic").value, destination: $("m-destination").value, payment: $("m-payment").value, validity: $("m-validity").value },
     items: ITEMS, vatPercent: Number($("vat").value) || 0,
   };
+}
+
+async function generateAll() {
+  if (!ITEMS.length) { alert("Chưa có sản phẩm nào trong báo giá."); return; }
+  if (!$("c-messrs").value.trim()) { alert("Nhập tên khách hàng."); return; }
+  const quote = buildQuote();
   const dls = $("downloads"); dls.innerHTML = "";
   $("status").textContent = "Đang tạo 4 mẫu...";
   const safeNo = (quote.meta.quotNo || "BaoGia").replace(/[^\w-]+/g, "-");
@@ -522,6 +527,11 @@ function bootApp() {
   syncAuto();
   $("product-search").addEventListener("input", renderPickList);
   loadCatalog();
+  // Preview real-time: mọi thay đổi input/select trong app -> vẽ lại mẫu đang xem.
+  const rerender = () => { if (window.renderCurrentPreview) renderCurrentPreview(); };
+  document.getElementById("app-root").addEventListener("input", rerender);
+  document.getElementById("app-root").addEventListener("change", rerender);
+  rerender();
 }
 window.bootApp = bootApp;
 // Chạy local không có cổng mật khẩu (mở file trực tiếp / dev): tự boot.
