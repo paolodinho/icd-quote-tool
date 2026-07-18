@@ -166,6 +166,37 @@ function autoPrice(p) { // preview trong list (chưa gồm vận chuyển - cầ
 }
 
 /* Tính lại đơn giá mọi dòng theo quy định (trừ dòng sales đã sửa tay) */
+// Kho ICD Hà Nội (Toà nhà Thăng Long A1, Kim Chung, Đông Anh) - toạ độ cố định làm điểm xuất phát.
+const ICD_HN = { lat: 21.2183, lon: 105.8098, addr: "Toà nhà Thăng Long A1, Kim Chung, Đông Anh, Hà Nội" };
+
+// Tự tính khoảng cách kho ICD HN -> địa chỉ khách. OSM/OSRM (miễn phí). Sai/không ra thì có link Google Maps thật.
+async function calcDistance() {
+  const addr = ($("c-add").value || "").trim() || ($("m-destination").value || "").trim();
+  const link = $("gmap-link");
+  // luôn dựng sẵn link Google Maps thật để đối chiếu / tính tay
+  if (addr) {
+    link.href = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(ICD_HN.addr)}&destination=${encodeURIComponent(addr + ", Việt Nam")}`;
+    link.style.display = "";
+  }
+  if (!addr) { $("status").textContent = "Nhập địa chỉ khách (mục Chi tiết khách) trước khi tính km."; return; }
+  $("status").textContent = "Đang tính khoảng cách...";
+  try {
+    const geo = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=vn&q=${encodeURIComponent(addr)}`, { headers: { "Accept": "application/json" } });
+    const g = await geo.json();
+    if (!g || !g.length) { $("status").textContent = "Không tự tìm được địa chỉ trên bản đồ. Bấm 'mở Google Maps' để xem km rồi điền tay."; return; }
+    const { lat, lon } = g[0];
+    const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${ICD_HN.lon},${ICD_HN.lat};${lon},${lat}?overview=false`);
+    const d = await r.json();
+    if (!d.routes || !d.routes.length) { $("status").textContent = "Không tính được tuyến đường. Dùng 'mở Google Maps' để lấy km."; return; }
+    const km = Math.round(d.routes[0].distance / 1000);
+    $("distance").value = km;
+    recomputePrices();
+    $("status").textContent = `Khoảng cách ~${km} km (ước tính tự động, đối chiếu 'mở Google Maps' nếu cần chính xác). Km sửa tay được.`;
+  } catch (e) {
+    $("status").textContent = "Lỗi mạng khi tính km. Bấm 'mở Google Maps' để xem km rồi điền tay.";
+  }
+}
+
 function recomputePrices() {
   const km = Number($("distance").value) || 0;
   const rateKm = Number($("ship-rate")?.value) || 0;              // đ/km tự điền (feedback team: 10k/20k...)
