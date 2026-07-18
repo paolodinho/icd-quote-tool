@@ -109,8 +109,8 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
     </div>
     <div class="pick" style="margin-top:-2px">
       <span style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap">Miền khách <select id="cust-region" style="width:auto" onchange="recomputePrices()"><option value="bac">Miền Bắc</option><option value="nam">Miền Nam</option></select></span>
-      <span style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap">Phụ phí Bắc-Nam <input id="cross-fee" type="number" value="80000" style="width:80px" oninput="recomputePrices()"> đ/pallet</span>
-      <span class="tag auto">tự cộng khi NCC khác miền khách · (giá NSX + VC) × 1.2</span>
+      <span id="cross-fee-wrap" style="display:none;align-items:center;gap:5px;font-size:13px;white-space:nowrap">Phụ phí Bắc-Nam <input id="cross-fee" type="number" value="80000" style="width:80px" oninput="recomputePrices()"> đ/pallet</span>
+      <span id="cross-tag" class="tag auto" style="display:none">tự cộng khi NCC khác miền khách · (giá NSX + VC) × 1.2</span>
     </div>
     <div id="sup-info" style="font-size:12.5px;color:var(--muted);margin:0 0 6px;display:none"></div>
     <div id="pick-list" style="max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:4px 10px;margin-bottom:8px"></div>

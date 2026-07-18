@@ -260,16 +260,21 @@ function recomputePrices() {
     const totalShip = Math.max(rate * totalVol * km, cfg.min);
     shipPerVol = totalShip / totalVol;
   }
+  let anyCross = false;
   ITEMS.forEach((it, i) => {
     if (it.manual) return;
     if (!(it.buyHint > 0)) return;
     const vol = Number(it.volume) || 0;
     let shipPerSP = vol > 0 ? vol * shipPerVol : shipPerUnitFlat;
     // +phụ phí Bắc-Nam khi NCC của SP khác miền với khách (import/không rõ NCC -> không cộng)
-    if (crossFee > 0 && (it.region === "bac" || it.region === "nam") && it.region !== custRegion) shipPerSP += crossFee;
+    if (crossFee > 0 && (it.region === "bac" || it.region === "nam") && it.region !== custRegion) { shipPerSP += crossFee; anyCross = true; }
     it.price = Math.round((it.buyHint + shipPerSP) * MARKUP);
     const inp = $(`price-${i}`); if (inp && document.activeElement !== inp) inp.value = it.price;
   });
+  // Ô "Phụ phí Bắc-Nam" chỉ hiện khi báo giá THỰC SỰ có SP khác miền với khách (vd khách Bắc mua hàng NCC Bắc -> ẩn).
+  const showCross = anyCross ? "inline-flex" : "none";
+  if ($("cross-fee-wrap")) $("cross-fee-wrap").style.display = showCross;
+  if ($("cross-tag")) $("cross-tag").style.display = anyCross ? "inline-block" : "none";
   $("status").textContent = over300
     ? "Trên 300 km mà chưa điền đơn giá/km: quy định yêu cầu liên hệ báo giá vận chuyển riêng - giá đang tính CHƯA gồm vận chuyển."
     : (km > 0 && rateKm === 0 && totalVol === 0 && ITEMS.length ? "Các SP chưa có thể tích (m³): điền 'Đơn giá VC đ/km' để tính vận chuyển chia đều theo SL, hoặc giá = giá NSX × 1.2." : "");
