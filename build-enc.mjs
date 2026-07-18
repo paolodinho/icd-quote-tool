@@ -7,14 +7,28 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const PASS = process.env.QUOTE_PASS;
-if (!PASS || PASS.length < 4) { console.error("Thiếu QUOTE_PASS (>=4 ký tự)."); process.exit(1); }
+// Mật khẩu: ưu tiên biến môi trường QUOTE_PASS, không có thì đọc file data-private/.enc-pass (gitignored).
+let PASS = process.env.QUOTE_PASS;
+if (!PASS) {
+  const pf = path.join(HERE, "data-private", ".enc-pass");
+  if (fs.existsSync(pf)) PASS = fs.readFileSync(pf, "utf8").trim();
+}
+if (!PASS || PASS.length < 4) { console.error("Thiếu mật khẩu (QUOTE_PASS hoặc data-private/.enc-pass)."); process.exit(1); }
 
 const products = JSON.parse(fs.readFileSync(path.join(HERE, "data-private/products-full.json"), "utf8")).products;
 const custRaw = JSON.parse(fs.readFileSync(path.join(HERE, "data-private/customers.json"), "utf8"));
 const customers = custRaw.customers || custRaw;
 
-const payload = JSON.stringify({ products, customers, updated: new Date().toISOString().slice(0, 10) });
+// payload KHÔNG kèm ngày (để hash ổn định khi data không đổi -> tránh push rác mỗi lần chạy)
+const payload = JSON.stringify({ products, customers });
+const hashFile = path.join(HERE, "data-private", ".payload-hash");
+const curHash = crypto.createHash("sha256").update(payload).digest("hex");
+const force = process.argv.includes("--force");
+if (!force && fs.existsSync(path.join(HERE, "data-enc.json")) && fs.existsSync(hashFile)
+    && fs.readFileSync(hashFile, "utf8").trim() === curHash) {
+  console.log("Nội dung không đổi - giữ nguyên data-enc.json (bỏ qua mã hóa lại).");
+  process.exit(0);
+}
 
 const ITER = 250000;
 const salt = crypto.randomBytes(16);
@@ -31,4 +45,5 @@ const out = {
   ct: Buffer.concat([ct, tag]).toString("base64"), // GCM: ciphertext + tag
 };
 fs.writeFileSync(path.join(HERE, "data-enc.json"), JSON.stringify(out));
+fs.writeFileSync(hashFile, curHash);
 console.log(`Mã hóa xong: ${products.length} SP + ${customers.length} khách -> data-enc.json (${Math.round(out.ct.length/1024)}KB base64).`);
