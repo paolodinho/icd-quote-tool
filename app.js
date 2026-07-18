@@ -181,31 +181,49 @@ const SUPPLIERS = {
 };
 function supRegion(name) { return SUPPLIERS[name]?.region || ""; }
 
-// Tự tính khoảng cách kho ICD HN -> địa chỉ khách. OSM/OSRM (miễn phí). Sai/không ra thì có link Google Maps thật.
+// Geocode 1 chuỗi địa chỉ -> {lat,lon} hoặc null (Nominatim, giới hạn VN).
+async function geocodeVN(q) {
+  const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=vn&q=${encodeURIComponent(q)}`, { headers: { "Accept": "application/json" } });
+  const g = await r.json();
+  return (g && g.length) ? { lat: +g[0].lat, lon: +g[0].lon, matched: g[0].display_name } : null;
+}
+
+// TỰ tính khoảng cách kho ICD HN -> địa chỉ khách và ĐIỀN thẳng vào ô km (không cần mở map).
+// Địa chỉ chi tiết hay trượt -> dò LÙI: bỏ dần phần cụ thể (số nhà, toà nhà) tới khi ra được ít nhất cấp phường/quận/tỉnh.
 async function calcDistance() {
-  const addr = ($("c-add").value || "").trim() || ($("m-destination").value || "").trim();
+  const raw = (($("c-add").value || "").trim() || ($("m-destination").value || "").trim());
   const link = $("gmap-link");
-  // luôn dựng sẵn link Google Maps thật để đối chiếu / tính tay
-  if (addr) {
-    link.href = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(ICD_HN.addr)}&destination=${encodeURIComponent(addr + ", Việt Nam")}`;
-    link.style.display = "";
-  }
-  if (!addr) { $("status").textContent = "Nhập địa chỉ khách (mục Chi tiết khách) trước khi tính km."; return; }
-  $("status").textContent = "Đang tính khoảng cách...";
+  if (link) link.style.display = "none";
+  if (!raw) { $("status").textContent = "Nhập địa chỉ khách (mục Chi tiết khách) trước khi bấm Tính km."; return; }
+  $("status").textContent = "Đang tự tính khoảng cách...";
+  // Các mức thử (ít request cho nhanh): đầy đủ -> 3 cụm cuối (phường/quận/tỉnh) -> 2 cụm cuối -> cụm cuối (tỉnh)
+  const parts = raw.split(",").map(s => s.trim()).filter(Boolean);
+  const cand = [raw];
+  for (const n of [3, 2, 1]) if (parts.length > n) cand.push(parts.slice(-n).join(", "));
+  const tries = [...new Set(cand)];
   try {
-    const geo = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=vn&q=${encodeURIComponent(addr)}`, { headers: { "Accept": "application/json" } });
-    const g = await geo.json();
-    if (!g || !g.length) { $("status").textContent = "Không tự tìm được địa chỉ trên bản đồ. Bấm 'mở Google Maps' để xem km rồi điền tay."; return; }
-    const { lat, lon } = g[0];
-    const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${ICD_HN.lon},${ICD_HN.lat};${lon},${lat}?overview=false`);
+    let hit = null, usedLevel = 0;
+    for (let i = 0; i < tries.length; i++) {
+      hit = await geocodeVN(tries[i]);
+      if (hit) { usedLevel = i; break; }
+      if (i < tries.length - 1) await new Promise(r => setTimeout(r, 900)); // tôn trọng giới hạn Nominatim
+    }
+    if (!hit) {
+      if (link) { link.href = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(ICD_HN.addr)}&destination=${encodeURIComponent(raw + ", Việt Nam")}`; link.style.display = ""; }
+      $("status").textContent = "Không tự tìm được địa chỉ này trên bản đồ - bấm 'mở Google Maps' xem km rồi điền tay.";
+      return;
+    }
+    const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${ICD_HN.lon},${ICD_HN.lat};${hit.lon},${hit.lat}?overview=false`);
     const d = await r.json();
-    if (!d.routes || !d.routes.length) { $("status").textContent = "Không tính được tuyến đường. Dùng 'mở Google Maps' để lấy km."; return; }
+    if (!d.routes || !d.routes.length) { $("status").textContent = "Không tính được tuyến đường - thử lại hoặc điền km tay."; return; }
     const km = Math.round(d.routes[0].distance / 1000);
     $("distance").value = km;
     recomputePrices();
-    $("status").textContent = `Khoảng cách ~${km} km (ước tính tự động, đối chiếu 'mở Google Maps' nếu cần chính xác). Km sửa tay được.`;
+    const approx = usedLevel > 0 ? " (theo khu vực - địa chỉ chi tiết máy không tra được chính xác tới số nhà)" : "";
+    $("status").textContent = `Đã tự tính: ~${km} km${approx}. Km sửa tay được nếu cần.`;
   } catch (e) {
-    $("status").textContent = "Lỗi mạng khi tính km. Bấm 'mở Google Maps' để xem km rồi điền tay.";
+    if (link) { link.href = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(ICD_HN.addr)}&destination=${encodeURIComponent(raw + ", Việt Nam")}`; link.style.display = ""; }
+    $("status").textContent = "Lỗi mạng khi tự tính km - bấm 'mở Google Maps' để xem km.";
   }
 }
 
