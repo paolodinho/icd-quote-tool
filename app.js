@@ -121,6 +121,7 @@ function addFromHistory(i) {
     manual: true,
     buyHint: cat?.buyPrice || 0,
     volume: cat?.volume || 0,
+    region: supRegion(cat?.supplier),
     note: "",
   });
   renderItems();
@@ -169,6 +170,17 @@ function autoPrice(p) { // preview trong list (chưa gồm vận chuyển - cầ
 // Kho ICD Hà Nội (Toà nhà Thăng Long A1, Kim Chung, Đông Anh) - toạ độ cố định làm điểm xuất phát.
 const ICD_HN = { lat: 21.2183, lon: 105.8098, addr: "Toà nhà Thăng Long A1, Kim Chung, Đông Anh, Hà Nội" };
 
+// Nhà cung cấp: địa chỉ + miền (Bắc/Nam) - dùng tự tính phụ phí Bắc-Nam. Địa chỉ tra Google 2026-07-18.
+const SUPPLIERS = {
+  "Tân Hoa Thịnh Long An": { region: "nam", addr: "Đường số 1, CCN Liên Hưng, ấp Bình Tiền 2, Đức Hòa Hạ, Đức Hòa, Long An" },
+  "Long Thành Plastic":    { region: "nam", addr: "135A Hồ Học Lãm, P. An Lạc, Q. Bình Tân, TP.HCM" },
+  "CP XNK Hòa An":         { region: "bac", addr: "23 Lê Văn Lương, Nhân Chính, Thanh Xuân, Hà Nội (NM: KCN Khai Sơn, Thuận Thành, Bắc Ninh)" },
+  "Nhựa Bình Thuận":       { region: "bac", addr: "Times City, 458 Minh Khai, Hai Bà Trưng, Hà Nội (NM: Thanh Trì HN / Hải Dương / Hà Nam)" },
+  "Nhựa Tuệ Minh":         { region: "bac", addr: "Km3, Đường 376, Xã Giai Phạm, Yên Mỹ, Hưng Yên" },
+  "Shanghai We Pack":      { region: "nhap", addr: "Thượng Hải, Trung Quốc (hàng nhập khẩu)" },
+};
+function supRegion(name) { return SUPPLIERS[name]?.region || ""; }
+
 // Tự tính khoảng cách kho ICD HN -> địa chỉ khách. OSM/OSRM (miễn phí). Sai/không ra thì có link Google Maps thật.
 async function calcDistance() {
   const addr = ($("c-add").value || "").trim() || ($("m-destination").value || "").trim();
@@ -200,7 +212,7 @@ async function calcDistance() {
 function recomputePrices() {
   const km = Number($("distance").value) || 0;
   const rateKm = Number($("ship-rate")?.value) || 0;              // đ/km tự điền (feedback team: 10k/20k...)
-  const crossOn = !!$("cross-region")?.checked;                   // giao khác miền Bắc<->Nam
+  const custRegion = $("cust-region")?.value || "bac";           // miền khách (mặc định Bắc - kho HN)
   const crossFee = Number($("cross-fee")?.value) || 0;            // phụ phí Bắc-Nam đ/pallet
   const totalVol = ITEMS.reduce((s, it) => s + (Number(it.volume) || 0) * (Number(it.qty) || 0), 0);
   const totalQty = ITEMS.reduce((s, it) => s + (Number(it.qty) || 0), 0);
@@ -224,7 +236,8 @@ function recomputePrices() {
     if (!(it.buyHint > 0)) return;
     const vol = Number(it.volume) || 0;
     let shipPerSP = vol > 0 ? vol * shipPerVol : shipPerUnitFlat;
-    if (crossOn) shipPerSP += crossFee;                            // +80k/pallet khi giao khác miền
+    // +phụ phí Bắc-Nam khi NCC của SP khác miền với khách (import/không rõ NCC -> không cộng)
+    if (crossFee > 0 && (it.region === "bac" || it.region === "nam") && it.region !== custRegion) shipPerSP += crossFee;
     it.price = Math.round((it.buyHint + shipPerSP) * MARKUP);
     const inp = $(`price-${i}`); if (inp && document.activeElement !== inp) inp.value = it.price;
   });
@@ -280,7 +293,7 @@ function addSelected() {
   for (const id of TICKED) {
     const p = CATALOG.find((x) => String(x.id) === String(id));
     if (!p) continue;
-    ITEMS.push({ desc: [p.name, p.desc].filter(Boolean).join("\n"), unit: p.unit || "Cái", qty: 100, price: autoPrice(p), buyHint: p.buyPrice || 0, volume: p.volume || 0, manual: false, note: "" });
+    ITEMS.push({ desc: [p.name, p.desc].filter(Boolean).join("\n"), unit: p.unit || "Cái", qty: 100, price: autoPrice(p), buyHint: p.buyPrice || 0, volume: p.volume || 0, region: supRegion(p.supplier), manual: false, note: "" });
   }
   TICKED.clear();
   renderPickList();
