@@ -105,6 +105,17 @@ function syncCustomerFields(c) {
   }
   // nếu có dữ liệu chi tiết -> mở sẵn ô "Chi tiết khách" để thấy
   if (filled) { const d = document.querySelector("#c-messrs")?.closest("section")?.querySelector("details"); if (d) d.open = true; }
+  // TỰ nhận miền khách từ địa chỉ -> set ô "Miền khách" (để phụ phí Bắc-Nam auto đúng)
+  const reg = detectRegion(c.address || c.destination || "");
+  if (reg && $("cust-region")) { $("cust-region").value = reg; recomputePrices(); }
+}
+
+// Đoán miền (bac/nam) từ địa chỉ VN theo tên tỉnh/thành. Không rõ -> "" (giữ nguyên lựa chọn hiện tại).
+const NAM_KW = ["hồ chí minh","hcm","tphcm","sài gòn","sai gon","bình dương","binh duong","đồng nai","dong nai","long an","tây ninh","tay ninh","bà rịa","ba ria","vũng tàu","vung tau","bình phước","binh phuoc","tiền giang","tien giang","bến tre","ben tre","trà vinh","tra vinh","vĩnh long","vinh long","đồng tháp","dong thap","an giang","kiên giang","kien giang","cần thơ","can tho","hậu giang","hau giang","sóc trăng","soc trang","bạc liêu","bac lieu","cà mau","ca mau","bình thuận","binh thuan","ninh thuận","ninh thuan","khánh hòa","khanh hoa","phú yên","phu yen","đắk","dak","gia lai","kon tum","lâm đồng","lam dong","đà nẵng","da nang","quảng nam","quang nam","quảng ngãi","quang ngai","bình định","binh dinh"];
+function detectRegion(addr) {
+  const s = (addr || "").toLowerCase();
+  if (!s.trim()) return "";
+  return NAM_KW.some((k) => s.includes(k)) ? "nam" : "bac";
 }
 
 function addFromHistory(i) {
@@ -272,6 +283,17 @@ function renderSupplierFilter() {
     + sups.map((s) => `<option value="${s.replace(/"/g, "&quot;")}">${s}</option>`).join("")
     + '<option value="__none__">Chưa rõ NCC</option>';
   $("supplier-filter").value = cur && [...$("supplier-filter").options].some((o) => o.value === cur) ? cur : "";
+}
+
+// Hiển thị miền + địa chỉ NCC đang chọn ở filter (auto khi chọn nhà cung cấp).
+function updateSupplierInfo() {
+  const box = $("sup-info"); if (!box) return;
+  const s = $("supplier-filter").value;
+  const info = SUPPLIERS[s];
+  if (!info) { box.style.display = "none"; box.textContent = ""; return; }
+  const mien = info.region === "nam" ? "Miền Nam" : info.region === "bac" ? "Miền Bắc" : "Nhập khẩu";
+  box.innerHTML = `<b>${s}</b> - ${mien} · ${info.addr}. Phụ phí Bắc-Nam tự cộng khi khác miền với khách.`;
+  box.style.display = "";
 }
 
 function matchSupplier(p) {
