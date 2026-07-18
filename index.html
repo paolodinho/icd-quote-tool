@@ -102,12 +102,18 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
     <div class="pick">
       <input id="product-search" placeholder="Tìm sản phẩm (tên hoặc mã)..." style="flex:2;min-width:200px">
       <select id="supplier-filter" style="flex:1;min-width:150px" onchange="renderPickList()"><option value="">NCC: tất cả</option></select>
-      <span style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap">Giao cách kho <input id="distance" type="number" value="" placeholder="km" style="width:64px" oninput="recomputePrices()"> km <span class="tag auto">quy định: (giá NSX + vận chuyển) × 1.2</span></span>
+      <span style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap">Giao cách kho <input id="distance" type="number" value="" placeholder="km" style="width:60px" oninput="recomputePrices()"> km</span>
+      <span style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap">Đơn giá VC <input id="ship-rate" type="number" value="" placeholder="đ/km" style="width:74px" oninput="recomputePrices()"> đ/km</span>
+    </div>
+    <div class="pick" style="margin-top:-2px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--muted);margin:0;white-space:nowrap"><input type="checkbox" id="cross-region" style="width:auto" onchange="recomputePrices()"> Giao khác miền (Bắc↔Nam)</label>
+      <span style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap">Phụ phí Bắc-Nam <input id="cross-fee" type="number" value="80000" style="width:80px" oninput="recomputePrices()"> đ/pallet</span>
+      <span class="tag auto">quy định: (giá NSX + vận chuyển) × 1.2</span>
     </div>
     <div id="pick-list" style="max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:4px 10px;margin-bottom:8px"></div>
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">
       <button class="btn-sub" style="background:var(--dark);color:#fff" onclick="addSelected()">Đưa lên báo giá (<span id="tick-count">0</span> SP đã tick)</button>
-      <span class="hint" style="margin:0">Giá theo quy định công ty: <b>(giá NSX + phí vận chuyển/SP) × 1.2</b>. Nhập km để tính vận chuyển (ghép xe/nguyên xe theo tổng m³, tối thiểu chuyến, &gt;300km liên hệ). Sửa tay đơn giá thì dòng đó giữ nguyên theo tay.</span>
+      <span class="hint" style="margin:0">Giá = <b>(giá NSX + phí vận chuyển/SP) × 1.2</b>. Điền <b>đơn giá VC (đ/km)</b> → vận chuyển = km × đơn giá, chia theo m³ (hoặc đều theo SL). Bỏ trống đơn giá/km thì tính theo bảng ghép/nguyên xe cũ. Tích <b>Giao khác miền</b> nếu NCC và khách khác miền Bắc-Nam (+phụ phí/pallet). Sửa tay đơn giá thì dòng đó giữ nguyên.</span>
     </div>
     <table class="items-table" id="items"><thead>
       <tr><th style="width:26px">#</th><th>Mô tả sản phẩm</th><th style="width:60px">ĐVT</th><th style="width:64px">SL</th><th style="width:104px">Đơn giá</th><th style="width:106px">Thành tiền</th><th style="width:66px">Tỉ lệ lãi</th><th style="width:30px"></th></tr>

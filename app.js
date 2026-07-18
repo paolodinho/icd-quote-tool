@@ -168,10 +168,21 @@ function autoPrice(p) { // preview trong list (chưa gồm vận chuyển - cầ
 /* Tính lại đơn giá mọi dòng theo quy định (trừ dòng sales đã sửa tay) */
 function recomputePrices() {
   const km = Number($("distance").value) || 0;
+  const rateKm = Number($("ship-rate")?.value) || 0;              // đ/km tự điền (feedback team: 10k/20k...)
+  const crossOn = !!$("cross-region")?.checked;                   // giao khác miền Bắc<->Nam
+  const crossFee = Number($("cross-fee")?.value) || 0;            // phụ phí Bắc-Nam đ/pallet
   const totalVol = ITEMS.reduce((s, it) => s + (Number(it.volume) || 0) * (Number(it.qty) || 0), 0);
-  let over300 = false, shipPerVol = 0; // đ cho mỗi m³
-  if (km > 300) over300 = true;
-  else if (km > 0 && totalVol > 0) {
+  const totalQty = ITEMS.reduce((s, it) => s + (Number(it.qty) || 0), 0);
+  let over300 = false, shipPerVol = 0, shipPerUnitFlat = 0; // đ/m³ hoặc đ/đơn vị (khi chưa có m³)
+  if (rateKm > 0 && km > 0) {
+    // Mô hình đơn giản theo yêu cầu team: tổng vận chuyển = km × đơn giá/km, chia theo m³ (hoặc đều theo SL nếu chưa có m³)
+    const totalShip = km * rateKm;
+    if (totalVol > 0) shipPerVol = totalShip / totalVol;
+    else if (totalQty > 0) shipPerUnitFlat = totalShip / totalQty;
+  } else if (km > 300) {
+    over300 = true;
+  } else if (km > 0 && totalVol > 0) {
+    // Mô hình cũ: ghép xe/nguyên xe theo tổng m³ (khi không điền đơn giá/km)
     const cfg = totalVol < SHIP.threshold ? SHIP.ghep : SHIP.nguyen;
     const rate = (cfg.rates.find(([max]) => km <= max) || cfg.rates[2])[1];
     const totalShip = Math.max(rate * totalVol * km, cfg.min);
@@ -180,13 +191,15 @@ function recomputePrices() {
   ITEMS.forEach((it, i) => {
     if (it.manual) return;
     if (!(it.buyHint > 0)) return;
-    const shipPerSP = (Number(it.volume) || 0) * shipPerVol;
+    const vol = Number(it.volume) || 0;
+    let shipPerSP = vol > 0 ? vol * shipPerVol : shipPerUnitFlat;
+    if (crossOn) shipPerSP += crossFee;                            // +80k/pallet khi giao khác miền
     it.price = Math.round((it.buyHint + shipPerSP) * MARKUP);
     const inp = $(`price-${i}`); if (inp && document.activeElement !== inp) inp.value = it.price;
   });
   $("status").textContent = over300
-    ? "Trên 300 km: quy định yêu cầu liên hệ báo giá vận chuyển riêng - giá đang tính CHƯA gồm vận chuyển."
-    : (km > 0 && totalVol === 0 && ITEMS.length ? "Các SP trong báo giá chưa có thể tích (m³) - chưa tính được vận chuyển, giá = giá NSX × 1.2." : "");
+    ? "Trên 300 km mà chưa điền đơn giá/km: quy định yêu cầu liên hệ báo giá vận chuyển riêng - giá đang tính CHƯA gồm vận chuyển."
+    : (km > 0 && rateKm === 0 && totalVol === 0 && ITEMS.length ? "Các SP chưa có thể tích (m³): điền 'Đơn giá VC đ/km' để tính vận chuyển chia đều theo SL, hoặc giá = giá NSX × 1.2." : "");
   recalc();
 }
 
