@@ -239,7 +239,9 @@ async function calcDistance() {
 }
 
 function recomputePrices() {
-  const km = Number($("distance").value) || 0;
+  const km1 = Number($("distance").value) || 0;                   // km 1 chiều (kho HN -> khách), như ô nhập/geocode
+  const legs = $("round-trip")?.checked ? 2 : 1;                  // tích "Khứ hồi" -> tính cước cả chiều về
+  const km = km1 * legs;                                          // km dùng để TÍNH CƯỚC
   const rateKm = Number($("ship-rate")?.value) || 0;              // đ/km tự điền (feedback team: 10k/20k...)
   const custRegion = $("cust-region")?.value || "bac";           // miền khách (mặc định Bắc - kho HN)
   const crossFee = Number($("cross-fee")?.value) || 0;            // phụ phí Bắc-Nam đ/pallet
@@ -251,7 +253,7 @@ function recomputePrices() {
     const totalShip = km * rateKm;
     if (totalVol > 0) shipPerVol = totalShip / totalVol;
     else if (totalQty > 0) shipPerUnitFlat = totalShip / totalQty;
-  } else if (km > 300) {
+  } else if (km1 > 300) {
     over300 = true;
   } else if (km > 0 && totalVol > 0) {
     // Mô hình cũ: ghép xe/nguyên xe theo tổng m³ (khi không điền đơn giá/km)

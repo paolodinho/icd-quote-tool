@@ -15,8 +15,21 @@ body{font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var
 header{background:var(--dark);color:#fff;padding:14px 24px;display:flex;align-items:baseline;gap:14px;flex-wrap:nowrap}
 header h1{font-size:19px;letter-spacing:-0.02em;white-space:nowrap}
 header span{color:#B7C2C8;font-size:13px;letter-spacing:0.06em;text-transform:uppercase;white-space:nowrap}
-main{max-width:1440px;margin:18px auto;padding:0 16px;display:grid;grid-template-columns:minmax(380px,0.9fr) minmax(0,1.25fr);gap:18px;align-items:start}
-@media(max-width:980px){main{grid-template-columns:1fr}}
+main{max-width:1440px;margin:18px auto;padding:0 16px;display:grid;grid-template-columns:var(--leftw,minmax(380px,0.9fr)) 16px minmax(0,1.25fr);gap:0;align-items:start}
+@media(max-width:980px){main{grid-template-columns:1fr}#col-gutter{display:none}}
+.col-gutter{align-self:stretch;cursor:col-resize;position:relative;min-height:240px;touch-action:none}
+.col-gutter::before{content:"";position:absolute;top:0;bottom:0;left:50%;transform:translateX(-50%);width:4px;border-radius:3px;background:var(--border)}
+.col-gutter:hover::before,.col-gutter.drag::before{background:var(--orange)}
+@media print{
+  #gate,header,.col-gutter,#preview-pane .pv-tabs,#dl-row,#status,#downloads{display:none!important}
+  body,main{background:#fff!important}
+  main{display:block!important;margin:0;padding:0}
+  #main-left{display:none!important}
+  #preview-pane{position:static!important}
+  #preview{max-height:none!important;overflow:visible!important;border:none!important;padding:0!important;background:#fff!important}
+  .pv2-paper{box-shadow:none!important;width:100%!important;max-width:100%!important}
+  @page{margin:8mm}
+}
 /* ---- Preview pane ---- */
 #preview-pane{position:sticky;top:14px}
 .pv-tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
@@ -121,7 +134,7 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
   <span>Bản test nội bộ</span>
 </header>
 <main>
-<div><!-- CỘT TRÁI -->
+<div id="main-left"><!-- CỘT TRÁI -->
   <section>
     <h2>1. Khách hàng</h2>
     <label>Tên khách hàng (bắt buộc - gõ vài chữ, khách cũ trong Misa sẽ tự gợi ý)</label>
@@ -159,6 +172,7 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
       <span style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap">Giao cách kho <input id="distance" type="number" value="" placeholder="km" style="width:60px" oninput="recomputePrices()"> km
         <button class="btn-sub" style="padding:5px 9px;font-size:12px" onclick="calcDistance()" title="Tự tính km từ kho ICD Hà Nội tới địa chỉ khách">Tính km</button>
         <a id="gmap-link" href="#" target="_blank" rel="noopener" style="font-size:12px;color:var(--orange-dk);display:none">mở Google Maps</a></span>
+      <label style="display:flex;align-items:center;gap:4px;font-size:13px;white-space:nowrap;cursor:pointer" title="Km nhập là 1 chiều (kho → khách). Tích ô này nếu tính cước cả chiều về"><input type="checkbox" id="round-trip" style="width:auto" onchange="recomputePrices()"> Khứ hồi (×2)</label>
       <span style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap">Đơn giá VC <input id="ship-rate" type="number" value="" placeholder="đ/km" style="width:74px" oninput="recomputePrices()"> đ/km</span>
     </div>
     <div class="pick" style="margin-top:-2px">
@@ -190,8 +204,8 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
         <div><label>PIC <span class="tag auto">mặc định</span></label><input id="m-pic" value="Le Van Thang (0983797186)" list="pic-list" autocomplete="off">
         <datalist id="pic-list">
           <option value="Le Van Thang (0983797186)">
-          <option value="Đỗ Thị Thanh Huyền">
-          <option value="Đỗ Thị Thu Trang">
+          <option value="Đỗ Thị Thanh Huyền (0979305186)">
+          <option value="Đỗ Thị Thu Trang (0905859186)">
         </datalist></div>
         <div><label>Incoterms <span class="tag auto">mặc định</span></label><input id="m-incoterms" value="DAP (Giao hàng tại kho bên mua, đã bao gồm phí vận chuyển)"></div>
         <div><label>Leadtime <span class="tag auto">mặc định</span></label><input id="m-leadtime" value="1-2 tuần"></div>
@@ -219,6 +233,7 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
   </details>
 </div>
 
+<div class="col-gutter" id="col-gutter" title="Kéo trái/phải để chỉnh độ rộng"></div>
 <div id="preview-pane"><!-- CỘT PHẢI: XEM TRƯỚC REAL-TIME -->
   <div class="pv-tabs">
     <button class="pv-tab active" data-k="mau-1" onclick="setPreviewTab('mau-1')">Mẫu 1 - ICD</button>
@@ -227,8 +242,9 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
     <button class="pv-tab" data-k="mau-4" onclick="setPreviewTab('mau-4')">Mẫu 4 - Toàn Cầu</button>
   </div>
   <div id="preview"></div>
-  <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
-    <button class="btn-main" style="flex:2;margin-top:0;min-width:220px" onclick="downloadOne(window.PREVIEW_TAB)">Tải mẫu đang xem: <span id="dl-one-label">Mẫu 1</span></button>
+  <div id="dl-row" style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+    <button class="btn-main" style="flex:2;margin-top:0;min-width:200px" onclick="downloadOne(window.PREVIEW_TAB)">Tải mẫu đang xem: <span id="dl-one-label">Mẫu 1</span></button>
+    <button class="btn-sub" style="flex:0 0 auto;min-width:96px;background:#fff;border:1px solid var(--border);color:var(--dark);font-size:14px;padding:13px 16px" onclick="window.print()" title="In mẫu đang xem">In</button>
     <button class="btn-sub" style="flex:1;min-width:150px;background:var(--dark);color:#fff;font-size:14px;padding:13px 16px" onclick="generateAll()">Tải cả 4 mẫu .xlsx</button>
   </div>
   <div id="status"></div>
@@ -237,10 +253,33 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
 </main>
 </div><!-- /#app-root -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="xlsx-fill.js?v=20260719"></script>
-<script src="assets.js?v=20260719"></script>
-<script src="preview.js?v=20260719"></script>
-<script src="crypto-gate.js?v=20260719"></script>
-<script src="app.js?v=20260719"></script>
+<script src="xlsx-fill.js?v=20260719b"></script>
+<script src="assets.js?v=20260719b"></script>
+<script src="preview.js?v=20260719b"></script>
+<script src="crypto-gate.js?v=20260719b"></script>
+<script src="app.js?v=20260719b"></script>
+<script>
+/* Kéo đường ngăn giữa 2 cột để chỉnh độ rộng */
+(function(){
+  var main=document.querySelector("main"), gut=document.getElementById("col-gutter");
+  if(!main||!gut) return;
+  var drag=false;
+  function move(e){
+    if(!drag) return;
+    var rect=main.getBoundingClientRect(), pad=16;
+    var x=(e.touches?e.touches[0].clientX:e.clientX);
+    var w=x-rect.left-pad;
+    var min=340, max=rect.width-380-16-pad;
+    w=Math.max(min,Math.min(max,w));
+    main.style.setProperty("--leftw",w+"px");
+  }
+  function up(){drag=false;gut.classList.remove("drag");document.body.style.userSelect="";}
+  gut.addEventListener("pointerdown",function(e){drag=true;gut.classList.add("drag");document.body.style.userSelect="none";try{gut.setPointerCapture(e.pointerId);}catch(_){}});
+  gut.addEventListener("pointermove",move);
+  gut.addEventListener("pointerup",up);
+  gut.addEventListener("pointercancel",up);
+  gut.addEventListener("dblclick",function(){main.style.removeProperty("--leftw");}); // bấm đúp để về mặc định
+})();
+</script>
 </body>
 </html>
