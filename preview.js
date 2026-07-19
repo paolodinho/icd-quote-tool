@@ -8,6 +8,7 @@ const PREVIEW_CFG = {
   "mau-4": { label: "Mẫu 4", co: "toancau", imageCol: true },
 };
 let PREVIEW_TAB = "mau-1";
+window.PREVIEW_TAB = PREVIEW_TAB;
 const _pf = (n) => (Number(n) || 0).toLocaleString("vi-VN");
 const _pfd = (n) => (Number(n) ? _pf(n) : "-");
 const _esc = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -118,6 +119,9 @@ function renderCurrentPreview() {
 
 function setPreviewTab(key) {
   PREVIEW_TAB = key;
+  window.PREVIEW_TAB = key;
   document.querySelectorAll(".pv-tab").forEach((b) => b.classList.toggle("active", b.dataset.k === key));
+  const dl = document.getElementById("dl-one-label");
+  if (dl) dl.textContent = (PREVIEW_CFG[key] || {}).label || key;
   renderCurrentPreview();
 }
