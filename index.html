@@ -149,8 +149,8 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
     <input id="c-messrs" placeholder="CÔNG TY TNHH ..." list="cust-list" autocomplete="off" oninput="lookupCustomer()">
     <datalist id="cust-list"></datalist>
     <div id="cust-history"></div>
-    <details>
-      <summary>Chi tiết khách (không bắt buộc): địa chỉ, người liên hệ, SĐT, email...</summary>
+    <details open>
+      <summary>Chi tiết khách: địa chỉ, người liên hệ (ATTN), SĐT, Tel, Fax, email, nơi giao hàng - sửa/bổ sung tự do</summary>
       <div class="grid2">
         <div><label>Địa chỉ</label><input id="c-add"></div>
         <div><label>Người liên hệ (ATTN)</label><input id="c-attn"></div>
@@ -211,8 +211,8 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
       <span>Ngày: <b id="show-date"></b></span>
       <span>Hiệu lực: <b id="show-validity"></b></span>
     </div>
-    <details>
-      <summary>Điều khoản (tự sinh sẵn - chỉ mở khi cần sửa)</summary>
+    <details open>
+      <summary>Điều khoản: Số báo giá, Ngày, Hiệu lực, PIC, Incoterms, Leadtime, Thanh toán - tự sinh sẵn, sửa nếu cần</summary>
       <div class="grid2">
         <div><label>Số báo giá <span class="tag auto">tự sinh</span></label><input id="m-quotNo" oninput="syncAuto()"></div>
         <div><label>Ngày <span class="tag auto">tự sinh</span></label><input id="m-date" type="date" onchange="syncAuto()"></div>
