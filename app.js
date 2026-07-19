@@ -11,6 +11,10 @@ const $ = (id) => document.getElementById(id);
 const fmt = (n) => (Number(n) || 0).toLocaleString("vi-VN");
 const today = () => { const d = new Date(); return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`; };
 const plusDays = (days) => { const d = new Date(Date.now() + days*864e5); return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`; };
+// Ô <input type="date"> lưu dạng ISO yyyy-mm-dd; báo giá hiển thị dd/mm/yyyy.
+const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+const plusDaysISO = (days) => { const d = new Date(Date.now() + days*864e5); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+const isoToVN = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ""); return m ? `${m[3]}/${m[2]}/${m[1]}` : (s || ""); };
 
 /* ---------- Số báo giá tự sinh: ICD-DDMM-<số thứ tự trong ngày> ---------- */
 function autoQuotNo() {
@@ -22,8 +26,8 @@ function autoQuotNo() {
 }
 function syncAuto() {
   $("show-quotNo").textContent = $("m-quotNo").value;
-  $("show-date").textContent = $("m-date").value;
-  $("show-validity").textContent = $("m-validity").value;
+  $("show-date").textContent = isoToVN($("m-date").value);
+  $("show-validity").textContent = isoToVN($("m-validity").value);
 }
 
 /* ---------- Kho giá ---------- */
@@ -490,7 +494,7 @@ function recalc() {
 function buildQuote() {
   return {
     customer: { messrs: $("c-messrs").value, add: $("c-add").value, tel: $("c-tel").value, fax: $("c-fax").value, attn: $("c-attn").value, mobile: $("c-mobile").value, email: $("c-email").value },
-    meta: { quotNo: $("m-quotNo").value, date: $("m-date").value, incoterms: $("m-incoterms").value, leadtime: $("m-leadtime").value, pic: $("m-pic").value, destination: $("m-destination").value, payment: $("m-payment").value, validity: $("m-validity").value },
+    meta: { quotNo: $("m-quotNo").value, date: isoToVN($("m-date").value), incoterms: $("m-incoterms").value, leadtime: $("m-leadtime").value, pic: $("m-pic").value, destination: $("m-destination").value, payment: $("m-payment").value, validity: isoToVN($("m-validity").value) },
     items: ITEMS, vatPercent: Number($("vat").value) || 0,
   };
 }
@@ -545,8 +549,8 @@ window.downloadOne = downloadOne;
 
 /* ---------- Init ---------- */
 function bootApp() {
-  $("m-date").value = today();
-  $("m-validity").value = plusDays(30);
+  $("m-date").value = todayISO();
+  $("m-validity").value = plusDaysISO(30);
   $("m-quotNo").value = autoQuotNo();
   syncAuto();
   $("product-search").addEventListener("input", renderPickList);

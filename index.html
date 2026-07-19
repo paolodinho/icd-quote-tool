@@ -199,8 +199,8 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
       <summary>Điều khoản (tự sinh sẵn - chỉ mở khi cần sửa)</summary>
       <div class="grid2">
         <div><label>Số báo giá <span class="tag auto">tự sinh</span></label><input id="m-quotNo" oninput="syncAuto()"></div>
-        <div><label>Ngày <span class="tag auto">tự sinh</span></label><input id="m-date" oninput="syncAuto()"></div>
-        <div><label>Hiệu lực đến <span class="tag auto">tự sinh: +30 ngày</span></label><input id="m-validity" oninput="syncAuto()"></div>
+        <div><label>Ngày <span class="tag auto">tự sinh</span></label><input id="m-date" type="date" onchange="syncAuto()"></div>
+        <div><label>Hiệu lực đến <span class="tag auto">tự sinh: +30 ngày</span></label><input id="m-validity" type="date" onchange="syncAuto()"></div>
         <div><label>PIC <span class="tag auto">mặc định</span></label><select id="m-pic">
           <option value="Le Van Thang (0983797186)">Le Van Thang (0983797186)</option>
           <option value="Đỗ Thị Thanh Huyền (0979305186)">Đỗ Thị Thanh Huyền (0979305186)</option>
@@ -252,11 +252,11 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
 </main>
 </div><!-- /#app-root -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="xlsx-fill.js?v=20260719b"></script>
-<script src="assets.js?v=20260719b"></script>
-<script src="preview.js?v=20260719b"></script>
-<script src="crypto-gate.js?v=20260719b"></script>
-<script src="app.js?v=20260719b"></script>
+<script src="xlsx-fill.js?v=20260719c"></script>
+<script src="assets.js?v=20260719c"></script>
+<script src="preview.js?v=20260719c"></script>
+<script src="crypto-gate.js?v=20260719c"></script>
+<script src="app.js?v=20260719c"></script>
 <script>
 /* Kéo đường ngăn giữa 2 cột để chỉnh độ rộng */
 (function(){
