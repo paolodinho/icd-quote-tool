@@ -240,11 +240,11 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
     <button class="pv-tab" data-k="mau-2" onclick="setPreviewTab('mau-2')">Mẫu 2 - ICD</button>
     <button class="pv-tab" data-k="mau-3" onclick="setPreviewTab('mau-3')">Mẫu 3 - ICD</button>
     <button class="pv-tab" data-k="mau-4" onclick="setPreviewTab('mau-4')">Mẫu 4 - Toàn Cầu</button>
+    <button class="pv-print" onclick="window.print()" title="In mẫu đang xem" style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;background:var(--orange);color:#fff;border-radius:6px;font-size:13px;padding:8px 14px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>In</button>
   </div>
   <div id="preview"></div>
   <div id="dl-row" style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
-    <button class="btn-main" style="flex:2;margin-top:0;min-width:200px" onclick="downloadOne(window.PREVIEW_TAB)">Tải mẫu đang xem: <span id="dl-one-label">Mẫu 1</span></button>
-    <button class="btn-sub" style="flex:0 0 auto;min-width:96px;background:#fff;border:1px solid var(--border);color:var(--dark);font-size:14px;padding:13px 16px" onclick="window.print()" title="In mẫu đang xem">In</button>
+    <button class="btn-main" style="flex:2;margin-top:0;min-width:220px" onclick="downloadOne(window.PREVIEW_TAB)">Tải mẫu đang xem: <span id="dl-one-label">Mẫu 1</span></button>
     <button class="btn-sub" style="flex:1;min-width:150px;background:var(--dark);color:#fff;font-size:14px;padding:13px 16px" onclick="generateAll()">Tải cả 4 mẫu .xlsx</button>
   </div>
   <div id="status"></div>
