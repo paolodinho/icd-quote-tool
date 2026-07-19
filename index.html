@@ -188,7 +188,15 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
       <span id="cross-fee-wrap" style="display:none;align-items:center;gap:5px;font-size:13px;white-space:nowrap">Phụ phí Bắc-Nam <input id="cross-fee" type="number" value="80000" style="width:80px" oninput="recomputePrices()"> đ/pallet</span>
       <span id="cross-tag" class="tag auto" style="display:none">tự cộng khi NCC khác miền khách · (giá NSX + VC) × 1.2</span>
     </div>
-    <div class="hint" style="margin:0 0 10px">Giá = <b>(giá NSX + phí vận chuyển/SP) × 1.2</b>. Điền <b>đơn giá VC (đ/km)</b> → vận chuyển = km × đơn giá, chia theo m³ (hoặc đều theo SL). Bỏ trống đơn giá/km thì tính theo bảng ghép/nguyên xe cũ. Tích <b>Giao khác miền</b> nếu NCC và khách khác miền Bắc-Nam (+phụ phí/pallet). Sửa tay đơn giá thì dòng đó giữ nguyên.</div>
+    <div class="hint" style="margin:2px 0 8px;line-height:1.6">
+      <b>Cách tính:</b> Giá bán = (giá NSX + phí vận chuyển/SP) × 1.2.<br>
+      &bull; <b>Giao cách kho</b>: số km 1 chiều từ <b>Kho ICD Hà Nội</b> (Thăng Long A1, Thôn Bầu, Đông Anh, Hà Nội) đến địa chỉ khách. Bấm <b>Tính km</b> để tự đo, hoặc sửa tay.<br>
+      &bull; <b>Khứ hồi (×2)</b>: tích nếu muốn tính cước cả chiều xe quay về (nhân đôi km khi tính phí).<br>
+      &bull; <b>Đơn giá VC (đ/km)</b>: mặc định để TRỐNG. Muốn áp/đổi mức cước thì <b>nhập số vào đây</b> (vd 10.000, 20.000). Bỏ trống = chưa tính cước theo km.<br>
+      &bull; <b>Miền khách</b>: chọn Bắc/Nam - khi NCC của SP khác miền với khách sẽ tự cộng phụ phí/pallet.<br>
+      &bull; Sửa tay đơn giá 1 dòng thì dòng đó giữ nguyên, không bị tính lại.
+    </div>
+    <div id="ship-info" style="font-size:12.5px;background:#FFF8F2;border:1px solid #FFE0C2;border-radius:6px;padding:9px 12px;margin:0 0 10px;line-height:1.55;display:none"></div>
     <table class="items-table" id="items"><thead>
       <tr><th style="width:26px">#</th><th>Mô tả sản phẩm</th><th style="width:60px">ĐVT</th><th style="width:64px">SL</th><th style="width:104px">Đơn giá</th><th style="width:106px">Thành tiền</th><th style="width:66px">Tỉ lệ lãi</th><th style="width:30px"></th></tr>
     </thead><tbody></tbody></table>
@@ -268,11 +276,11 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
   <div id="pv-full-body"></div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="xlsx-fill.js?v=20260719c"></script>
-<script src="assets.js?v=20260719c"></script>
-<script src="preview.js?v=20260719c"></script>
-<script src="crypto-gate.js?v=20260719c"></script>
-<script src="app.js?v=20260719c"></script>
+<script src="xlsx-fill.js?v=20260719d"></script>
+<script src="assets.js?v=20260719d"></script>
+<script src="preview.js?v=20260719d"></script>
+<script src="crypto-gate.js?v=20260719d"></script>
+<script src="app.js?v=20260719d"></script>
 <script>
 /* Kéo đường ngăn giữa 2 cột để chỉnh độ rộng */
 (function(){
