@@ -21,7 +21,7 @@ main{max-width:1440px;margin:18px auto;padding:0 16px;display:grid;grid-template
 .col-gutter::before{content:"";position:absolute;top:0;bottom:0;left:50%;transform:translateX(-50%);width:4px;border-radius:3px;background:var(--border)}
 .col-gutter:hover::before,.col-gutter.drag::before{background:var(--orange)}
 @media print{
-  #gate,header,.col-gutter,#preview-pane .pv-tabs,#dl-row,#status,#downloads{display:none!important}
+  #gate,header,.col-gutter,#preview-pane .pv-tabs,#dl-row,#status,#downloads,#ship-warn,#ship-info{display:none!important}
   body,main{background:#fff!important}
   main{display:block!important;margin:0;padding:0}
   #main-left{display:none!important}
@@ -281,11 +281,11 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
   <div id="pv-full-body"></div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="xlsx-fill.js?v=20260719i"></script>
-<script src="assets.js?v=20260719i"></script>
-<script src="preview.js?v=20260719i"></script>
-<script src="crypto-gate.js?v=20260719i"></script>
-<script src="app.js?v=20260719i"></script>
+<script src="xlsx-fill.js?v=20260719j"></script>
+<script src="assets.js?v=20260719j"></script>
+<script src="preview.js?v=20260719j"></script>
+<script src="crypto-gate.js?v=20260719j"></script>
+<script src="app.js?v=20260719j"></script>
 <script>
 /* Kéo đường ngăn giữa 2 cột để chỉnh độ rộng */
 (function(){
