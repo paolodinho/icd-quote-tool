@@ -97,6 +97,7 @@ const XlsxFill = (() => {
       cols: { stt: "A", desc: "B", unit: "F", qty: "G", price: "I", total: "J", note: "L" },
       rowMerges: [["B", "E"], ["G", "H"]],
       totals: { subtotal: ["J", 22], vat: ["J", 23], grand: ["J", 24], vatLabel: ["A", 23] },
+      imgCol: "K",
     },
     "mau-2": {
       file: "templates/mau-2.xlsx", label: "Mẫu 2 - ICD (bản 2)",
@@ -106,6 +107,7 @@ const XlsxFill = (() => {
       cols: { stt: "A", desc: "B", unit: "F", qty: "G", price: "I", total: "J", note: "L" },
       rowMerges: [["B", "E"], ["G", "H"]],
       totals: { subtotal: ["J", 22], vat: ["J", 23], grand: ["J", 24], vatLabel: ["A", 23] },
+      imgCol: "K",
     },
     "mau-3": {
       file: "templates/mau-3.xlsx", label: "Mẫu 3 - ICD (footer liên hệ)",
@@ -124,8 +126,99 @@ const XlsxFill = (() => {
       cols: { stt: "A", desc: "B", unit: "E", qty: "F", price: "G", total: "H", note: "J" },
       rowMerges: [["B", "D"]],
       totals: { subtotal: ["H", 20], vat: ["H", 21], grand: ["H", 22], vatLabel: ["A", 21] },
+      imgCol: "I",
     },
   };
+
+  // Cột chữ -> chỉ số 0-based (A=0, K=10, I=8)
+  const colToIdx = (letters) => { let n = 0; for (const ch of letters.toUpperCase()) n = n * 26 + (ch.charCodeAt(0) - 64); return n - 1; };
+
+  // Đưa mọi nguồn ảnh (data URI / URL) về PNG/JPEG base64. Trả {base64, ext} hoặc null nếu không đọc được (vd URL chặn CORS).
+  function loadImageEl(src) {
+    return new Promise((res) => { const im = new Image(); im.crossOrigin = "anonymous"; im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
+  }
+  async function toImgData(src) {
+    const dm = /^data:image\/(png|jpe?g);base64,(.+)$/i.exec(src || "");
+    if (dm) return { base64: dm[2], ext: /png/i.test(dm[1]) ? "png" : "jpeg" };
+    // webp/gif/bmp data URI, hoặc URL -> vẽ qua canvas ra PNG (URL chỉ được nếu host cho CORS)
+    const img = await loadImageEl(src);
+    if (!img) return null;
+    try {
+      const cv = document.createElement("canvas");
+      cv.width = img.naturalWidth || img.width || 1;
+      cv.height = img.naturalHeight || img.height || 1;
+      cv.getContext("2d").drawImage(img, 0, 0);
+      return { base64: cv.toDataURL("image/png").split(",")[1], ext: "png" };
+    } catch (e) { return null; } // canvas bị "taint" do ảnh khác miền không cho CORS
+  }
+
+  // Nhúng ảnh sản phẩm vào cột hình ảnh của file xlsx (chèn vào drawing có sẵn của template).
+  async function embedImages(zip, sheetPath, cfg, withImg) {
+    const relsPath = sheetPath.replace(/worksheets\/(sheet\d+)\.xml$/, "worksheets/_rels/$1.xml.rels");
+    if (!zip.file(relsPath)) return;
+    const sheetRels = await zip.file(relsPath).async("string");
+    const drRel = sheetRels.match(/<Relationship[^>]*Type="[^"]*\/drawing"[^>]*\/>/);
+    if (!drRel) return; // template không có drawing -> bỏ qua (các mẫu ảnh đều có sẵn)
+    const tgt = (drRel[0].match(/Target="([^"]+)"/) || [])[1] || "";
+    const drawingPath = "xl/" + tgt.replace(/^(\.\.\/)+/, ""); // ../drawings/drawing1.xml -> xl/drawings/drawing1.xml
+    const drRelsPath = drawingPath.replace(/drawings\/(drawing\d+)\.xml$/, "drawings/_rels/$1.xml.rels");
+    if (!zip.file(drawingPath)) return;
+    let drawingXml = await zip.file(drawingPath).async("string");
+    let drawingRels = zip.file(drRelsPath) ? await zip.file(drRelsPath).async("string") : `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`;
+
+    let maxRid = 0; (drawingRels.match(/Id="rId(\d+)"/g) || []).forEach((m) => { maxRid = Math.max(maxRid, Number(m.match(/\d+/)[0])); });
+    const cIdx = colToIdx(cfg.imgCol);
+    const usedExt = new Set();
+    let newRels = "", newAnchors = "", k = 0;
+
+    for (const { i, image } of withImg) {
+      const data = await toImgData(image);
+      if (!data) continue; // ảnh URL bị chặn CORS -> vẫn hiện ở preview/PDF, chỉ không vào .xlsx
+      k++;
+      const rid = "rId" + (maxRid + k);
+      const fname = "qimg" + (maxRid + k) + "." + data.ext;
+      usedExt.add(data.ext);
+      zip.file("xl/media/" + fname, data.base64, { base64: true });
+      newRels += `<Relationship Id="${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${fname}"/>`;
+      const r = cfg.productRow + i - 1; // 0-based row của ô ảnh
+      const id = 5000 + maxRid + k;
+      newAnchors += `<xdr:twoCellAnchor editAs="oneCell">`
+        + `<xdr:from><xdr:col>${cIdx}</xdr:col><xdr:colOff>9525</xdr:colOff><xdr:row>${r}</xdr:row><xdr:rowOff>9525</xdr:rowOff></xdr:from>`
+        + `<xdr:to><xdr:col>${cIdx + 1}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${r + 1}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>`
+        + `<xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${id}" name="qimg${id}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr>`
+        + `<xdr:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>`
+        + `<xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:twoCellAnchor>`;
+    }
+    if (!k) return;
+
+    drawingRels = drawingRels.replace(/<\/Relationships>/, newRels + "</Relationships>");
+    drawingXml = drawingXml.replace(/<\/xdr:wsDr>/, newAnchors + "</xdr:wsDr>");
+    zip.file(drawingPath, drawingXml);
+    zip.file(drRelsPath, drawingRels);
+
+    // Đảm bảo [Content_Types].xml khai báo phần mở rộng ảnh dùng tới
+    let ct = await zip.file("[Content_Types].xml").async("string");
+    for (const ext of usedExt) {
+      if (!new RegExp(`Extension="${ext}"`, "i").test(ct)) {
+        const mime = ext === "png" ? "image/png" : "image/jpeg";
+        ct = ct.replace(/<Types([^>]*)>/, `<Types$1><Default Extension="${ext}" ContentType="${mime}"/>`);
+      }
+    }
+    zip.file("[Content_Types].xml", ct);
+    return true;
+  }
+
+  // Đặt chiều cao dòng sản phẩm (để ảnh hiện đủ). Chỉ áp khi mẫu có cột ảnh + có ảnh.
+  function setProductRowHeights(xml, baseRow, n, ht) {
+    for (let i = 0; i < n; i++) {
+      const rn = baseRow + i;
+      xml = xml.replace(new RegExp(`<row r="${rn}"([^>]*)>`), (m, attrs) => {
+        attrs = attrs.replace(/\s+ht="[^"]*"/, "").replace(/\s+customHeight="[^"]*"/, "");
+        return `<row r="${rn}"${attrs} ht="${ht}" customHeight="1">`;
+      });
+    }
+    return xml;
+  }
 
   /** Sinh 1 file báo giá.
    * quote = { customer:{messrs,add,tel,fax,attn,mobile,email},
@@ -171,6 +264,15 @@ const XlsxFill = (() => {
     // Khách hàng + meta
     for (const [k, ref] of Object.entries(cfg.customer)) xml = setCellText(xml, ref, quote.customer[k] || "");
     for (const [k, ref] of Object.entries(cfg.meta))     xml = setCellText(xml, ref, quote.meta[k] || "");
+
+    // Nhúng ảnh sản phẩm (mẫu có cột ảnh)
+    if (cfg.imgCol) {
+      const withImg = quote.items.map((it, i) => ({ i, image: it.image })).filter((x) => x.image);
+      if (withImg.length) {
+        xml = setProductRowHeights(xml, cfg.productRow, n, 54); // để ảnh hiện đủ
+        await embedImages(zip, sheetPath, cfg, withImg);
+      }
+    }
 
     zip.file(sheetPath, xml);
     return zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
