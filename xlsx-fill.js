@@ -208,16 +208,32 @@ const XlsxFill = (() => {
     return true;
   }
 
-  // Đặt chiều cao dòng sản phẩm (để ảnh hiện đủ). Chỉ áp khi mẫu có cột ảnh + có ảnh.
-  function setProductRowHeights(xml, baseRow, n, ht) {
-    for (let i = 0; i < n; i++) {
+  // Chiều cao từng dòng SP theo nội dung, để mở file KHÔNG bị che chữ (căn sẵn, không cần chỉnh tay).
+  function setRowHeightsPerRow(xml, baseRow, heights) {
+    heights.forEach((ht, i) => {
       const rn = baseRow + i;
       xml = xml.replace(new RegExp(`<row r="${rn}"([^>]*)>`), (m, attrs) => {
         attrs = attrs.replace(/\s+ht="[^"]*"/, "").replace(/\s+customHeight="[^"]*"/, "");
         return `<row r="${rn}"${attrs} ht="${ht}" customHeight="1">`;
       });
-    }
+    });
     return xml;
+  }
+
+  // Ước lượng số dòng text sẽ wrap trong ô rộng ~`w` ký tự (mỗi \n là 1 dòng, dòng dài tự chia).
+  function estLines(txt, w) {
+    return String(txt || "").split("\n").reduce((a, l) => a + Math.max(1, Math.ceil((l.trim().length || 1) / w)), 0);
+  }
+  // Tính chiều cao (pt) cho mỗi dòng SP: đủ cho mô tả nhiều dòng + ghi chú; có ảnh thì tối thiểu 56.
+  function productRowHeights(cfg, items) {
+    // cột mô tả gộp (B:E / B:D) rộng -> ~44 ký tự; ghi chú hẹp -> ~18
+    const descW = cfg.rowMerges.some(([a]) => a === cfg.cols.desc) ? 44 : 30;
+    return items.map((it) => {
+      const n = Math.max(estLines(it.desc, descW), estLines(it.note, 18), 1);
+      let h = Math.max(30, n * 15 + 6);         // ~15pt/dòng + đệm
+      if (cfg.imgCol && it.image) h = Math.max(h, 56);
+      return Math.min(h, 240);                   // trần an toàn
+    });
   }
 
   /** Sinh 1 file báo giá.
@@ -265,13 +281,13 @@ const XlsxFill = (() => {
     for (const [k, ref] of Object.entries(cfg.customer)) xml = setCellText(xml, ref, quote.customer[k] || "");
     for (const [k, ref] of Object.entries(cfg.meta))     xml = setCellText(xml, ref, quote.meta[k] || "");
 
+    // Căn sẵn chiều cao mọi dòng SP theo nội dung -> mở file không bị che chữ, không phải chỉnh tay
+    xml = setRowHeightsPerRow(xml, cfg.productRow, productRowHeights(cfg, quote.items));
+
     // Nhúng ảnh sản phẩm (mẫu có cột ảnh)
     if (cfg.imgCol) {
       const withImg = quote.items.map((it, i) => ({ i, image: it.image })).filter((x) => x.image);
-      if (withImg.length) {
-        xml = setProductRowHeights(xml, cfg.productRow, n, 54); // để ảnh hiện đủ
-        await embedImages(zip, sheetPath, cfg, withImg);
-      }
+      if (withImg.length) await embedImages(zip, sheetPath, cfg, withImg);
     }
 
     zip.file(sheetPath, xml);
