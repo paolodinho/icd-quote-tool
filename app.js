@@ -452,7 +452,7 @@ function renderItems() {
     <td><textarea oninput="ITEMS[${i}].desc=this.value">${it.desc}</textarea></td>
     <td><input value="${it.unit}" oninput="ITEMS[${i}].unit=this.value"></td>
     <td><input type="number" class="num" value="${it.qty}" oninput="ITEMS[${i}].qty=Number(this.value);recomputePrices()"></td>
-    <td><input type="number" class="num" id="price-${i}" value="${it.price}" placeholder="${it.buyHint ? 'mua ' + it.buyHint : ''}" oninput="ITEMS[${i}].price=Number(this.value);ITEMS[${i}].manual=true;recalc()">${it.buyHint ? `<div class="price-age buy">mua NCC: ${fmt(it.buyHint)}</div>` : ""}</td>
+    <td><input type="number" class="num" id="price-${i}" value="${it.price || ''}" placeholder="${it.buyHint ? 'gợi ý ' + Math.round(it.buyHint * MARKUP) : 'nhập giá'}" style="${!it.price ? 'background:#FFF4E5;border-color:#FB7703' : ''}" oninput="ITEMS[${i}].price=Number(this.value);ITEMS[${i}].manual=true;this.style.background=this.value?'':'#FFF4E5';recalc()">${it.buyHint ? `<div class="price-age buy">mua NCC: ${fmt(it.buyHint)}</div>` : (!it.price ? `<div class="price-age" style="color:#B91C1C">chưa có giá kho - nhập tay</div>` : "")}</td>
     <td class="num" id="line-${i}">${fmt(it.qty * it.price)}</td>
     <td class="num" id="margin-${i}"></td>
     <td><button class="btn-del" onclick="ITEMS.splice(${i},1);renderItems();recomputePrices()">×</button></td>
@@ -518,6 +518,28 @@ async function generateAll() {
   }
   $("status").textContent = "Xong - bấm mẫu muốn tải.";
 }
+
+/* Tải LẺ đúng 1 mẫu (mẫu đang xem preview). key = mau-1..mau-4. */
+async function downloadOne(key) {
+  key = key || (window.PREVIEW_TAB || "mau-1");
+  if (!ITEMS.length) { alert("Chưa có sản phẩm nào trong báo giá."); return; }
+  if (!$("c-messrs").value.trim()) { alert("Nhập tên khách hàng."); return; }
+  const quote = buildQuote();
+  const safeNo = (quote.meta.quotNo || "BaoGia").replace(/[^\w-]+/g, "-");
+  const label = (XlsxFill.TEMPLATES[key] || {}).label || key;
+  $("status").textContent = `Đang tạo ${label}...`;
+  try {
+    const blob = await XlsxFill.generate(key, quote);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${safeNo}_${key}.xlsx`;
+    document.body.appendChild(a); a.click(); a.remove();
+    $("status").textContent = `Đã tải: ${a.download}`;
+  } catch (e) {
+    $("status").textContent = `${key}: lỗi - ${e.message}`;
+  }
+}
+window.downloadOne = downloadOne;
 
 /* ---------- Init ---------- */
 function bootApp() {

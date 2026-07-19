@@ -223,17 +223,20 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
     <button class="pv-tab" data-k="mau-4" onclick="setPreviewTab('mau-4')">Mẫu 4 - Toàn Cầu</button>
   </div>
   <div id="preview"></div>
-  <button class="btn-main" onclick="generateAll()">Tải báo giá (đủ 4 mẫu .xlsx)</button>
+  <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+    <button class="btn-main" style="flex:2;margin-top:0;min-width:220px" onclick="downloadOne(window.PREVIEW_TAB)">Tải mẫu đang xem: <span id="dl-one-label">Mẫu 1</span></button>
+    <button class="btn-sub" style="flex:1;min-width:150px;background:var(--dark);color:#fff;font-size:14px;padding:13px 16px" onclick="generateAll()">Tải cả 4 mẫu .xlsx</button>
+  </div>
   <div id="status"></div>
   <div class="downloads" id="downloads"></div>
 </div>
 </main>
 </div><!-- /#app-root -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="xlsx-fill.js"></script>
-<script src="assets.js"></script>
-<script src="preview.js"></script>
-<script src="crypto-gate.js"></script>
-<script src="app.js"></script>
+<script src="xlsx-fill.js?v=20260719"></script>
+<script src="assets.js?v=20260719"></script>
+<script src="preview.js?v=20260719"></script>
+<script src="crypto-gate.js?v=20260719"></script>
+<script src="app.js?v=20260719"></script>
 </body>
 </html>
