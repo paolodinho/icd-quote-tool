@@ -1,114 +1,112 @@
-/* preview.js - Render A4 báo giá real-time cho 4 mẫu (không cần bấm gì).
+/* preview.js - Render A4 báo giá real-time GIỐNG file xlsx tải ra (đối chiếu LibreOffice render).
    Dùng chung object quote với xlsx-fill.js (buildQuote() trong app.js). */
 
 const PREVIEW_CFG = {
-  "mau-1": { label: "Mẫu 1", head: "icd",     imageCol: true,  footer: false },
-  "mau-2": { label: "Mẫu 2", head: "icd",     imageCol: true,  footer: false },
-  "mau-3": { label: "Mẫu 3", head: "icd",     imageCol: false, footer: true  },
-  "mau-4": { label: "Mẫu 4", head: "toancau", imageCol: true,  footer: false },
+  "mau-1": { label: "Mẫu 1", co: "icd",     imageCol: true },
+  "mau-2": { label: "Mẫu 2", co: "icd",     imageCol: true },
+  "mau-3": { label: "Mẫu 3", co: "icd",     imageCol: false },
+  "mau-4": { label: "Mẫu 4", co: "toancau", imageCol: true },
 };
 let PREVIEW_TAB = "mau-1";
 const _pf = (n) => (Number(n) || 0).toLocaleString("vi-VN");
+const _pfd = (n) => (Number(n) ? _pf(n) : "-");
 const _esc = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-function previewHeader(cfg) {
-  if (cfg.head === "toancau") {
-    return `<div class="pv-head">
-      <img class="pv-logo" src="${IMG_ICD_LOGO}" alt="logo">
-      <div class="pv-co">
-        <div class="pv-co-vn">CÔNG TY TNHH ĐẦU TƯ VÀ SẢN XUẤT TOÀN CẦU VIỆT NAM</div>
-        <div class="pv-co-en">INVESTMENT AND MANUFACTURING GLOBAL VIETNAM CO., LTD</div>
-        <div class="pv-co-line">MST: 0109660438 &nbsp;|&nbsp; H2-TM9 Tòa nhà Hope Residences, Phường Phúc Lợi, TP. Hà Nội</div>
-        <div class="pv-co-line">ĐT: 0905859186 &nbsp;|&nbsp; icdvietnam.com.vn &nbsp;|&nbsp; Sales@icdvietnam.com.vn</div>
-        <div class="pv-co-line">STK: 19037213761015 - Techcombank CN Nội Bài</div>
-      </div>
-    </div>`;
-  }
-  return `<div class="pv-head-img"><img src="${IMG_ICD_LETTERHEAD}" alt="ICD"></div>`;
+function pvHeaderICD() {
+  return `<div class="pv2-lh"><img src="${IMG_ICD_LETTERHEAD}" alt="ICD"></div>
+    <img class="pv2-stamp-tl" src="${IMG_ICD_STAMP}" alt="">`;
+}
+function pvHeaderTC() {
+  return `<table class="pv2-tc-head"><tr>
+    <td class="pv2-tc-logo"><img src="${IMG_ICD_LOGO}" alt="logo"></td>
+    <td class="pv2-tc-co">
+      <div class="pv2-tc-vn">CÔNG TY TNHH ĐẦU TƯ VÀ SẢN XUẤT TOÀN CẦU VIỆT NAM</div>
+      <div class="pv2-tc-en">INVESTMENT AND MANUFACTURING GLOBAL VIETNAM CO., LTD</div>
+      <div class="pv2-tc-l">MST: 0109660438 &nbsp;|&nbsp; H2-TM9 Tòa nhà Hope Residences, Phường Phúc Lợi, TP. Hà Nội</div>
+      <div class="pv2-tc-l">ĐT: 0905859186 &nbsp;|&nbsp; Website: http://icdvietnam.com.vn &nbsp;|&nbsp; Email: Sales@icdvietnam.com.vn</div>
+      <div class="pv2-tc-l">STK: 19037213761015 &nbsp; Ngân hàng TMCP Kỹ Thương Việt Nam (Techcombank) - CN NBI - TCB Nội Bài</div>
+    </td></tr></table>`;
 }
 
-function previewRow(label, en, val) {
-  return `<tr><td class="pv-lbl">${label}${en ? ` <span class="pv-en">${en}</span>` : ""}</td><td class="pv-colon">:</td><td class="pv-val">${_esc(val)}</td></tr>`;
+function pvInfoRow(lL, lV, rL, rV) {
+  return `<tr>
+    <td class="pv2-l">${lL}</td><td class="pv2-cn">${lL ? ":" : ""}</td><td class="pv2-v">${_esc(lV)}</td>
+    <td class="pv2-l">${rL}</td><td class="pv2-cn">${rL ? ":" : ""}</td><td class="pv2-v">${_esc(rV)}</td>
+  </tr>`;
 }
 
 function renderPreview(key, q) {
   const cfg = PREVIEW_CFG[key];
+  const icd = cfg.co === "icd";
   const c = q.customer, m = q.meta;
   const vatP = Number(q.vatPercent) || 0;
+  const imgCol = cfg.imageCol;
+  const nCols = imgCol ? 8 : 7;
+
   let subtotal = 0;
   const rows = q.items.map((it, i) => {
     const qty = Number(it.qty) || 0, price = Number(it.price) || 0, total = qty * price;
     subtotal += total;
-    const desc = _esc(it.desc).replace(/\n/g, "<br>");
     return `<tr>
-      <td class="pv-c">${i + 1}</td>
-      <td class="pv-desc">${desc}</td>
-      <td class="pv-c">${_esc(it.unit || "Cái")}</td>
-      <td class="pv-c">${_pf(qty)}</td>
-      <td class="pv-r">${_pf(price)}</td>
-      <td class="pv-r">${_pf(total)}</td>
-      ${cfg.imageCol ? '<td class="pv-c pv-img"></td>' : ""}
-      <td class="pv-note">${_esc(it.note || "")}</td>
+      <td class="pv2-c">${i + 1}</td>
+      <td class="pv2-desc">${_esc(it.desc).replace(/\n/g, "<br>")}</td>
+      <td class="pv2-c">${_esc(it.unit || "Cái")}</td>
+      <td class="pv2-c">${_pf(qty)}</td>
+      <td class="pv2-r">${_pfd(price)}</td>
+      <td class="pv2-r">${_pfd(total)}</td>
+      ${imgCol ? '<td class="pv2-c"></td>' : ""}
+      <td class="pv2-note">${_esc(it.note || "")}</td>
     </tr>`;
-  }).join("") || `<tr><td class="pv-empty" colspan="${cfg.imageCol ? 8 : 7}">Chưa có sản phẩm - tick chọn sản phẩm ở bên trái để xem báo giá.</td></tr>`;
+  }).join("") || `<tr><td class="pv2-empty" colspan="${nCols}">Chưa có sản phẩm - tick chọn ở bên trái để xem báo giá.</td></tr>`;
+
   const vatAmt = Math.round(subtotal * vatP / 100);
   const grand = subtotal + vatAmt;
-  const nCols = cfg.imageCol ? 8 : 7;
-  const totalSpan = nCols - 2;
+  const tail = imgCol ? "<td></td><td></td>" : "<td></td>"; // ô Hình ảnh / Ghi chú trống ở dòng tổng
+  const totalRow = (lbl, val) => `<tr class="pv2-tot">
+    <td class="pv2-totlbl" colspan="4">${lbl}</td>
+    <td class="pv2-c">VND</td><td class="pv2-r">${val}</td>${tail}</tr>`;
 
-  const footer = cfg.footer ? `<div class="pv-footer">
-    Công ty TNHH Sản xuất Công nghiệp ICD Việt Nam · Hotline: 0983 797 186 / 090 345 9186 · Email: sales@icdvietnam.com.vn · icdvietnam.com.vn
-  </div>` : "";
+  const header = icd ? pvHeaderICD() : pvHeaderTC();
+  const footerRight = icd ? "ICD VIET NAM" : "INVESTMENT AND MANUFACTURING GLOBAL VIETNAM CO., LTD";
+  const signArea = icd
+    ? `<img class="pv2-sign" src="${IMG_ICD_SIGN}" alt="">`
+    : `<img class="pv2-sign-tc" src="${IMG_TC_STAMPSIGN}" alt="">`;
 
-  return `<div class="pv-paper">
-    ${previewHeader(cfg)}
-    <div class="pv-title">BÁO GIÁ / QUOTATION</div>
-    <table class="pv-info"><tr>
-      <td class="pv-info-l"><table>
-        ${previewRow("Messrs", "", c.messrs)}
-        ${previewRow("Add", "Đc", c.add)}
-        ${previewRow("Tel", "", c.tel)}
-        ${previewRow("Fax", "", c.fax)}
-        ${previewRow("ATTN", "", c.attn)}
-        ${previewRow("Mobile", "", c.mobile)}
-        ${previewRow("Email", "", c.email)}
-      </table></td>
-      <td class="pv-info-r"><table>
-        ${previewRow("Quotation No", "", m.quotNo)}
-        ${previewRow("Date", "Ngày", m.date)}
-        ${previewRow("Incoterms", "", m.incoterms)}
-        ${previewRow("Leadtime", "", m.leadtime)}
-        ${previewRow("PIC", "", m.pic)}
-        ${previewRow("Destination", "", m.destination)}
-        ${previewRow("Payment", "", m.payment)}
-        ${previewRow("Validity", "", m.validity)}
-      </table></td>
-    </tr></table>
-    <table class="pv-tbl">
+  return `<div class="pv2-paper ${icd ? "pv2-icd" : "pv2-tc"}">
+    <div class="pv2-header">${header}</div>
+    <div class="pv2-title">BÁO GIÁ/ QUOTATION</div>
+    <table class="pv2-grid"><tbody>
+      ${pvInfoRow("Messrs", c.messrs, "Quotation No", m.quotNo)}
+      ${pvInfoRow("Add/Đc", c.add, "Date/Ngày", m.date)}
+      ${pvInfoRow("Tel", c.tel, "Incoterms", m.incoterms)}
+      ${pvInfoRow("Fax", c.fax, "Leadtime", m.leadtime)}
+      ${pvInfoRow("ATTN", c.attn, "PIC", m.pic)}
+      ${pvInfoRow("Mobile", c.mobile, "Destination", m.destination)}
+      ${pvInfoRow("Email", c.email, "Payment Terms", m.payment)}
+      ${pvInfoRow("", "", "Validity", m.validity)}
+    </tbody></table>
+    <table class="pv2-tbl">
       <thead><tr>
-        <th style="width:34px">STT</th>
-        <th>MÔ TẢ SẢN PHẨM<br><span class="pv-en">PRODUCT</span></th>
-        <th style="width:52px">ĐVT<br><span class="pv-en">UNIT</span></th>
-        <th style="width:52px">SL<br><span class="pv-en">QTY</span></th>
-        <th style="width:96px">ĐƠN GIÁ<br><span class="pv-en">UNIT PRICE</span></th>
-        <th style="width:104px">THÀNH TIỀN<br><span class="pv-en">TOTAL</span></th>
-        ${cfg.imageCol ? '<th style="width:60px">HÌNH ẢNH</th>' : ""}
-        <th style="width:80px">GHI CHÚ<br><span class="pv-en">NOTE</span></th>
+        <th style="width:36px">STT</th>
+        <th>MÔ TẢ SẢN PHẨM / PRODUCT</th>
+        <th style="width:48px">ĐƠN VỊ /<br>UNIT</th>
+        <th style="width:54px">SỐ LƯỢNG<br>/ QTY</th>
+        <th style="width:86px">ĐƠN VỊ GIÁ /<br>UNIT PRICE (VND)</th>
+        <th style="width:92px">TỔNG / TOTAL<br>(VND)</th>
+        ${imgCol ? '<th style="width:56px">HÌNH ẢNH</th>' : ""}
+        <th style="width:70px">GHI CHÚ /<br>NOTE</th>
       </tr></thead>
       <tbody>${rows}</tbody>
       <tfoot>
-        <tr><td class="pv-tot-lbl" colspan="${totalSpan}">Tổng chưa VAT / Sub-total</td><td class="pv-r">${_pf(subtotal)}</td>${cfg.imageCol ? "<td></td>" : ""}<td></td></tr>
-        <tr><td class="pv-tot-lbl" colspan="${totalSpan}">VAT ${vatP}%</td><td class="pv-r">${_pf(vatAmt)}</td>${cfg.imageCol ? "<td></td>" : ""}<td></td></tr>
-        <tr class="pv-grand"><td class="pv-tot-lbl" colspan="${totalSpan}">TỔNG CỘNG / GRAND TOTAL (VND)</td><td class="pv-r">${_pf(grand)}</td>${cfg.imageCol ? "<td></td>" : ""}<td></td></tr>
-      </tbody>
+        ${totalRow("GIÁ TỔNG CHƯA BAO GỒM THUẾ VAT/ Total before tax", _pfd(subtotal))}
+        ${totalRow(`THUẾ GIÁ TRỊ GIA TĂNG VAT (${vatP}%)`, _pfd(vatAmt))}
+        ${totalRow("GIÁ TỔNG BAO GỒM THUẾ VAT/ Total after tax", _pf(grand))}
+      </tfoot>
     </table>
-    <div class="pv-sign">
-      <div class="pv-sign-box">
-        <div class="pv-sign-title">ĐẠI DIỆN BÊN BÁN</div>
-        <img class="pv-stamp" src="${IMG_ICD_STAMP}" alt="dấu">
-      </div>
-    </div>
-    ${footer}
+    <table class="pv2-foot"><tr>
+      <td class="pv2-foot-l">CONFIRM ORDER BY CUSTOMER</td>
+      <td class="pv2-foot-r">${footerRight}<div class="pv2-signwrap">${signArea}</div></td>
+    </tr></table>
   </div>`;
 }
 
