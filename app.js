@@ -314,6 +314,31 @@ function recomputePrices() {
       sInfo.style.display = "block";
     }
   }
+  // Banner cảnh báo gần preview + làm nổi nút "Tính km" khi CHƯA cộng cước vào giá
+  const warn = $("ship-warn"), kmBtn = $("btn-km");
+  const shipDone = shipTotal > 0;
+  if (warn) {
+    if (!ITEMS.length) {
+      warn.style.display = "none";
+    } else if (shipDone) {
+      warn.style.display = "block";
+      warn.style.background = "#E4EEE7"; warn.style.color = "#1B6B3A"; warn.style.border = "1px solid #B7D9C4";
+      warn.innerHTML = `<b>Đã cộng phí vận chuyển vào giá</b> (~${fmt(Math.round(shipTotal))} đ). Số tiền báo giá đã gồm cước.`;
+    } else if (over300) {
+      warn.style.display = "block";
+      warn.style.background = "#FFF4E5"; warn.style.color = "#92400E"; warn.style.border = "1px solid #FBBF77";
+      warn.innerHTML = `<b>Chưa tính cước.</b> Trên 300 km cần nhập <b>Đơn giá VC (đ/km)</b> để cộng cước vào giá.`;
+    } else {
+      warn.style.display = "block";
+      warn.style.background = "#FFF4E5"; warn.style.color = "#92400E"; warn.style.border = "1px solid #FBBF77";
+      const need = km1 <= 0
+        ? `bấm nút <b>Tính km</b> (hoặc nhập km) rồi nhập <b>Đơn giá VC (đ/km)</b>`
+        : `nhập <b>Đơn giá VC (đ/km)</b>`;
+      warn.innerHTML = `<b>Chưa tính phí vận chuyển vào giá.</b> Hãy ${need} - số tiền sẽ tự cập nhật và cảnh báo này biến mất.`;
+    }
+  }
+  // Nút Tính km nhấp nháy khi có SP mà chưa có km
+  if (kmBtn) kmBtn.classList.toggle("pulse", ITEMS.length > 0 && km1 <= 0);
   recalc();
 }
 
