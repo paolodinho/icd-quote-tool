@@ -491,9 +491,37 @@ function renderItems() {
     <td><input type="number" class="num" id="price-${i}" value="${it.price || ''}" placeholder="${it.buyHint ? 'gợi ý ' + Math.round(it.buyHint * MARKUP) : 'nhập giá'}" style="${!it.price ? 'background:#FFF4E5;border-color:#FB7703' : ''}" oninput="ITEMS[${i}].price=Number(this.value);ITEMS[${i}].manual=true;this.style.background=this.value?'':'#FFF4E5';recalc()">${it.buyHint ? `<div class="price-age buy">mua NCC: ${fmt(it.buyHint)}</div>` : (!it.price ? `<div class="price-age" style="color:#B91C1C">chưa có giá kho - nhập tay</div>` : "")}</td>
     <td class="num" id="line-${i}">${fmt(it.qty * it.price)}</td>
     <td class="num" id="margin-${i}"></td>
+    <td>${itemImgCell(it, i)}</td>
     <td><button class="btn-del" onclick="ITEMS.splice(${i},1);renderItems();recomputePrices()">×</button></td>
   </tr>`).join("");
   recalc();
+}
+
+/* Ô ảnh sản phẩm trong dòng báo giá: tải từ máy hoặc dán URL. Ảnh chỉ hiện ở cột HÌNH ẢNH của mẫu có cột ảnh. */
+function itemImgCell(it, i) {
+  const src = (it.image || "").replace(/"/g, "&quot;");
+  const thumb = it.image
+    ? `<img src="${src}" alt="" style="width:44px;height:44px;object-fit:contain;border:1px solid #eee;border-radius:4px;display:block" onerror="this.style.opacity=.25">`
+    : `<span style="display:flex;align-items:center;justify-content:center;width:44px;height:44px;border:1px dashed #cbd5e1;border-radius:4px;color:#94a3b8;font-size:11px;text-align:center;line-height:1.1">Tải<br>ảnh</span>`;
+  return `<label style="cursor:pointer;display:inline-block" title="Bấm để chọn ảnh từ máy"><input type="file" accept="image/*" style="display:none" onchange="setItemImg(${i},this)">${thumb}</label>
+    <div style="margin-top:3px;display:flex;gap:4px;align-items:center">
+      <button class="btn-sub" style="padding:2px 6px;font-size:11px" onclick="setItemImgUrl(${i})">URL</button>
+      ${it.image ? `<button class="btn-del" style="font-size:14px;padding:0 4px" title="Xoá ảnh" onclick="ITEMS[${i}].image='';renderItems();if(window.renderCurrentPreview)renderCurrentPreview()">×</button>` : ""}
+    </div>`;
+}
+function setItemImg(i, input) {
+  const f = input.files && input.files[0]; if (!f) return;
+  if (!/^image\//.test(f.type)) { alert("Chỉ chọn file ảnh (jpg, png, webp...)."); return; }
+  const r = new FileReader();
+  r.onload = () => { ITEMS[i].image = r.result; renderItems(); if (window.renderCurrentPreview) renderCurrentPreview(); };
+  r.readAsDataURL(f);
+}
+function setItemImgUrl(i) {
+  const cur = (ITEMS[i].image || "").slice(0, 4) === "http" ? ITEMS[i].image : "";
+  const u = prompt("Dán URL ảnh sản phẩm (bỏ trống = xoá ảnh):", cur);
+  if (u === null) return;
+  ITEMS[i].image = u.trim();
+  renderItems(); if (window.renderCurrentPreview) renderCurrentPreview();
 }
 
 function recalc() {

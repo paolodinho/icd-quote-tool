@@ -55,7 +55,7 @@ function renderPreview(key, q) {
       <td class="pv2-c">${_pf(qty)}</td>
       <td class="pv2-r">${_pfd(price)}</td>
       <td class="pv2-r">${_pfd(total)}</td>
-      ${imgCol ? '<td class="pv2-c"></td>' : ""}
+      ${imgCol ? `<td class="pv2-c">${it.image ? `<img src="${String(it.image).replace(/"/g, "&quot;")}" style="max-width:52px;max-height:52px;object-fit:contain">` : ""}</td>` : ""}
       <td class="pv2-note">${_esc(it.note || "")}</td>
     </tr>`;
   }).join("") || `<tr><td class="pv2-empty" colspan="${nCols}">Chưa có sản phẩm - tick chọn ở bên trái để xem báo giá.</td></tr>`;
