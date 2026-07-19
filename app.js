@@ -314,27 +314,35 @@ function recomputePrices() {
       sInfo.style.display = "block";
     }
   }
-  // Banner cảnh báo gần preview + làm nổi nút "Tính km" khi CHƯA cộng cước vào giá
-  const warn = $("ship-warn"), kmBtn = $("btn-km");
+  // Banner cảnh báo gần preview + ghi rõ số tiền ĐÃ/CHƯA gồm cước + làm nổi nút "Tính km"
+  const warn = $("ship-warn"), kmBtn = $("btn-km"), gNote = $("grand-ship-note");
   const shipDone = shipTotal > 0;
+  // Tổng tạm để hiển thị trong banner (giống recalc)
+  const subB = ITEMS.reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
+  const vatB = Number($("vat").value) || 0;
+  const grandB = subB + Math.round(subB * vatB / 100);
+  if (gNote) {
+    gNote.textContent = !ITEMS.length ? "" : (shipDone ? "(đã gồm vận chuyển)" : "(CHƯA gồm vận chuyển)");
+    gNote.style.color = shipDone ? "#1B6B3A" : "#B45309";
+  }
   if (warn) {
     if (!ITEMS.length) {
       warn.style.display = "none";
     } else if (shipDone) {
       warn.style.display = "block";
       warn.style.background = "#E4EEE7"; warn.style.color = "#1B6B3A"; warn.style.border = "1px solid #B7D9C4";
-      warn.innerHTML = `<b>Đã cộng phí vận chuyển vào giá</b> (~${fmt(Math.round(shipTotal))} đ). Số tiền báo giá đã gồm cước.`;
+      warn.innerHTML = `<b>Số tiền ${fmt(grandB)}đ ĐÃ gồm phí vận chuyển</b> (~${fmt(Math.round(shipTotal))} đ cước).`;
     } else if (over300) {
       warn.style.display = "block";
       warn.style.background = "#FFF4E5"; warn.style.color = "#92400E"; warn.style.border = "1px solid #FBBF77";
-      warn.innerHTML = `<b>Chưa tính cước.</b> Trên 300 km cần nhập <b>Đơn giá VC (đ/km)</b> để cộng cước vào giá.`;
+      warn.innerHTML = `<b>Số tiền ${fmt(grandB)}đ CHƯA gồm vận chuyển.</b> Trên 300 km cần nhập <b>Đơn giá VC (đ/km)</b> để cộng cước - số tiền sẽ tăng lên.`;
     } else {
       warn.style.display = "block";
       warn.style.background = "#FFF4E5"; warn.style.color = "#92400E"; warn.style.border = "1px solid #FBBF77";
       const need = km1 <= 0
-        ? `bấm nút <b>Tính km</b> (hoặc nhập km) rồi nhập <b>Đơn giá VC (đ/km)</b>`
-        : `nhập <b>Đơn giá VC (đ/km)</b>`;
-      warn.innerHTML = `<b>Chưa tính phí vận chuyển vào giá.</b> Hãy ${need} - số tiền sẽ tự cập nhật và cảnh báo này biến mất.`;
+        ? `bấm <b>Tính km</b> (hoặc nhập km) rồi nhập <b>Đơn giá VC (đ/km)</b>`
+        : `nhập <b>Đơn giá VC (đ/km)</b> (theo bảng giá Zalo)`;
+      warn.innerHTML = `<b>Số tiền ${fmt(grandB)}đ hiện CHƯA gồm phí vận chuyển</b> (mới là giá NSX ×1.2). Hãy ${need} - số tiền sẽ <b>tăng lên</b> và cảnh báo này chuyển xanh.`;
     }
   }
   // Nút Tính km nhấp nháy khi có SP mà chưa có km
