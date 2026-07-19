@@ -29,7 +29,15 @@ main{max-width:1440px;margin:18px auto;padding:0 16px;display:grid;grid-template
   #preview{max-height:none!important;overflow:visible!important;border:none!important;padding:0!important;background:#fff!important}
   .pv2-paper{box-shadow:none!important;width:100%!important;max-width:100%!important}
   @page{margin:8mm}
+  #pv-full{display:none!important}
 }
+/* ---- Xem toàn màn hình ---- */
+#pv-full{position:fixed;inset:0;z-index:900;background:rgba(20,25,28,.9);overflow:auto;padding:20px}
+#pv-full-bar{position:sticky;top:0;display:flex;align-items:center;gap:8px;max-width:1120px;margin:0 auto 14px;flex-wrap:wrap}
+#pv-full-tabs{display:flex;gap:6px;flex-wrap:wrap}
+#pv-full-body{max-width:1120px;margin:0 auto}
+#pv-full-body .pv2-paper{width:900px;max-width:100%;margin:0 auto;box-shadow:0 8px 34px rgba(0,0,0,.5);zoom:1.15}
+#pv-full-close{margin-left:auto;background:#fff;color:var(--dark);border-radius:6px;font-size:14px;padding:9px 18px}
 /* ---- Preview pane ---- */
 #preview-pane{position:sticky;top:14px}
 .pv-tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
@@ -239,7 +247,8 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
     <button class="pv-tab" data-k="mau-2" onclick="setPreviewTab('mau-2')">Mẫu 2 - ICD</button>
     <button class="pv-tab" data-k="mau-3" onclick="setPreviewTab('mau-3')">Mẫu 3 - ICD</button>
     <button class="pv-tab" data-k="mau-4" onclick="setPreviewTab('mau-4')">Mẫu 4 - Toàn Cầu</button>
-    <button class="pv-print" onclick="window.print()" title="In mẫu đang xem" style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;background:var(--orange);color:#fff;border-radius:6px;font-size:13px;padding:8px 14px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>In</button>
+    <button class="pv-print" onclick="openFull()" title="Xem toàn màn hình" style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;background:var(--dark);color:#fff;border-radius:6px;font-size:13px;padding:8px 14px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>Phóng to</button>
+    <button class="pv-print" onclick="window.print()" title="In mẫu đang xem" style="display:inline-flex;align-items:center;gap:6px;background:var(--orange);color:#fff;border-radius:6px;font-size:13px;padding:8px 14px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>In</button>
   </div>
   <div id="preview"></div>
   <div id="dl-row" style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
@@ -251,6 +260,13 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
 </div>
 </main>
 </div><!-- /#app-root -->
+<div id="pv-full" style="display:none">
+  <div id="pv-full-bar">
+    <div id="pv-full-tabs"></div>
+    <button id="pv-full-close" onclick="closeFull()">Đóng ✕</button>
+  </div>
+  <div id="pv-full-body"></div>
+</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="xlsx-fill.js?v=20260719c"></script>
 <script src="assets.js?v=20260719c"></script>
@@ -279,6 +295,21 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
   gut.addEventListener("pointercancel",up);
   gut.addEventListener("dblclick",function(){main.style.removeProperty("--leftw");}); // bấm đúp để về mặc định
 })();
+/* Xem báo giá toàn màn hình */
+function buildFullTabs(){
+  var host=document.getElementById("pv-full-tabs"); if(!host||typeof PREVIEW_CFG==="undefined") return;
+  host.innerHTML=Object.keys(PREVIEW_CFG).map(function(k){
+    var on=(k===window.PREVIEW_TAB);
+    return '<button class="pv-tab'+(on?" active":"")+'" onclick="fullTab(\''+k+'\')">'+PREVIEW_CFG[k].label+'</button>';
+  }).join("");
+}
+function renderFull(){ var b=document.getElementById("pv-full-body"); if(b) b.innerHTML=renderPreview(window.PREVIEW_TAB, buildQuote()); }
+function fullTab(k){ setPreviewTab(k); buildFullTabs(); renderFull(); }
+function openFull(){ buildFullTabs(); renderFull(); document.getElementById("pv-full").style.display="block"; document.body.style.overflow="hidden"; }
+function closeFull(){ document.getElementById("pv-full").style.display="none"; document.body.style.overflow=""; }
+document.addEventListener("keydown",function(e){ if(e.key==="Escape") closeFull(); });
+document.getElementById("pv-full").addEventListener("click",function(e){ if(e.target===this) closeFull(); }); // bấm nền tối để đóng
+window.openFull=openFull; window.closeFull=closeFull; window.fullTab=fullTab;
 </script>
 </body>
 </html>
