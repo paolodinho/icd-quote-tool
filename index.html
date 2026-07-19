@@ -185,7 +185,7 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
         <button id="btn-km" class="btn-km" onclick="calcDistance()" title="Tự tính km từ kho ICD Hà Nội tới địa chỉ khách rồi cộng cước vào giá">Tính km</button>
         <a id="gmap-link" href="#" target="_blank" rel="noopener" style="font-size:12px;color:var(--orange-dk);display:none">mở Google Maps</a></span>
       <label style="display:flex;align-items:center;gap:4px;font-size:13px;white-space:nowrap;cursor:pointer" title="Km nhập là 1 chiều (kho → khách). Tích ô này nếu tính cước cả chiều về"><input type="checkbox" id="round-trip" style="width:auto" onchange="recomputePrices()"> Khứ hồi (×2)</label>
-      <span style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap">Đơn giá VC <input id="ship-rate" type="number" value="" placeholder="đ/km" style="width:74px" oninput="recomputePrices()"> đ/km</span>
+      <span style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap">Đơn giá VC <input id="ship-rate" type="number" value="10000" placeholder="đ/km" style="width:74px" oninput="recomputePrices()"> đ/km</span>
     </div>
     <div class="pick" style="margin-top:-2px">
       <span style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap">Miền khách <select id="cust-region" style="width:auto" onchange="recomputePrices()"><option value="bac">Miền Bắc</option><option value="nam">Miền Nam</option></select></span>
@@ -196,7 +196,7 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
       <b>Cách tính:</b> Giá bán = (giá NSX + phí vận chuyển/SP) × 1.2.<br>
       &bull; <b>Giao cách kho</b>: số km 1 chiều từ <b>Kho ICD Hà Nội</b> (Thăng Long A1, Thôn Bầu, Đông Anh, Hà Nội) đến địa chỉ khách. Bấm <b>Tính km</b> để tự đo, hoặc sửa tay.<br>
       &bull; <b>Khứ hồi (×2)</b>: tích nếu muốn tính cước cả chiều xe quay về (nhân đôi km khi tính phí).<br>
-      &bull; <b>Đơn giá VC (đ/km)</b>: mặc định để TRỐNG. Muốn áp/đổi mức cước thì <b>nhập số vào đây</b> (vd 10.000, 20.000). Bỏ trống = chưa tính cước theo km.<br>
+      &bull; <b>Đơn giá VC (đ/km)</b>: mặc định <b>10.000 đ/km</b> (theo mức ông Thăng chốt trong nhóm: 10.000-20.000/km tuỳ tuyến). Sửa trực tiếp ở ô này khi cần; để trống = không tính cước theo km.<br>
       &bull; <b>Miền khách</b>: chọn Bắc/Nam - khi NCC của SP khác miền với khách sẽ tự cộng phụ phí/pallet.<br>
       &bull; Sửa tay đơn giá 1 dòng thì dòng đó giữ nguyên, không bị tính lại.
     </div>
@@ -281,11 +281,11 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
   <div id="pv-full-body"></div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="xlsx-fill.js?v=20260719h"></script>
-<script src="assets.js?v=20260719h"></script>
-<script src="preview.js?v=20260719h"></script>
-<script src="crypto-gate.js?v=20260719h"></script>
-<script src="app.js?v=20260719h"></script>
+<script src="xlsx-fill.js?v=20260719i"></script>
+<script src="assets.js?v=20260719i"></script>
+<script src="preview.js?v=20260719i"></script>
+<script src="crypto-gate.js?v=20260719i"></script>
+<script src="app.js?v=20260719i"></script>
 <script>
 /* Kéo đường ngăn giữa 2 cột để chỉnh độ rộng */
 (function(){
