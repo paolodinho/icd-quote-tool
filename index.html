@@ -102,6 +102,10 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
 .btn-main{background:var(--orange);color:#fff;font-size:16px;padding:13px 22px;width:100%;margin-top:14px;letter-spacing:0.02em}
 .btn-main:hover{background:var(--orange-dk)}
 .btn-sub{background:#EDEAE4;color:var(--dark);font-weight:600;font-size:13px;padding:7px 12px}
+.btn-km{background:var(--orange);color:#fff;font-weight:700;font-size:13px;padding:7px 15px;box-shadow:0 1px 4px rgba(251,119,3,.45)}
+.btn-km:hover{background:var(--orange-dk)}
+.btn-km.pulse{animation:kmpulse 1.3s ease-in-out infinite}
+@keyframes kmpulse{0%,100%{box-shadow:0 0 0 0 rgba(251,119,3,.5)}50%{box-shadow:0 0 0 6px rgba(251,119,3,0)}}
 .btn-del{background:none;color:#B91C1C;font-size:17px;padding:2px 6px;font-weight:400}
 .pick{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
 .pick select{flex:1;min-width:220px}
@@ -178,7 +182,7 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
     <h2>3. Phí vận chuyển & báo giá</h2>
     <div class="pick">
       <span style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap">Giao cách kho <input id="distance" type="number" value="" placeholder="km" style="width:60px" oninput="recomputePrices()"> km
-        <button class="btn-sub" style="padding:5px 9px;font-size:12px" onclick="calcDistance()" title="Tự tính km từ kho ICD Hà Nội tới địa chỉ khách">Tính km</button>
+        <button id="btn-km" class="btn-km" onclick="calcDistance()" title="Tự tính km từ kho ICD Hà Nội tới địa chỉ khách rồi cộng cước vào giá">Tính km</button>
         <a id="gmap-link" href="#" target="_blank" rel="noopener" style="font-size:12px;color:var(--orange-dk);display:none">mở Google Maps</a></span>
       <label style="display:flex;align-items:center;gap:4px;font-size:13px;white-space:nowrap;cursor:pointer" title="Km nhập là 1 chiều (kho → khách). Tích ô này nếu tính cước cả chiều về"><input type="checkbox" id="round-trip" style="width:auto" onchange="recomputePrices()"> Khứ hồi (×2)</label>
       <span style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap">Đơn giá VC <input id="ship-rate" type="number" value="" placeholder="đ/km" style="width:74px" oninput="recomputePrices()"> đ/km</span>
@@ -258,6 +262,7 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
     <button class="pv-print" onclick="openFull()" title="Xem toàn màn hình" style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;background:var(--dark);color:#fff;border-radius:6px;font-size:13px;padding:8px 14px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>Phóng to</button>
     <button class="pv-print" onclick="window.print()" title="In mẫu đang xem" style="display:inline-flex;align-items:center;gap:6px;background:var(--orange);color:#fff;border-radius:6px;font-size:13px;padding:8px 14px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>In</button>
   </div>
+  <div id="ship-warn" style="display:none;font-size:13px;border-radius:6px;padding:9px 13px;margin-bottom:10px;line-height:1.5"></div>
   <div id="preview"></div>
   <div id="dl-row" style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
     <button class="btn-main" style="flex:2;margin-top:0;min-width:220px" onclick="downloadOne(window.PREVIEW_TAB)">Tải mẫu đang xem: <span id="dl-one-label">Mẫu 1</span></button>
@@ -276,11 +281,11 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
   <div id="pv-full-body"></div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="xlsx-fill.js?v=20260719f"></script>
-<script src="assets.js?v=20260719f"></script>
-<script src="preview.js?v=20260719f"></script>
-<script src="crypto-gate.js?v=20260719f"></script>
-<script src="app.js?v=20260719f"></script>
+<script src="xlsx-fill.js?v=20260719g"></script>
+<script src="assets.js?v=20260719g"></script>
+<script src="preview.js?v=20260719g"></script>
+<script src="crypto-gate.js?v=20260719g"></script>
+<script src="app.js?v=20260719g"></script>
 <script>
 /* Kéo đường ngăn giữa 2 cột để chỉnh độ rộng */
 (function(){
