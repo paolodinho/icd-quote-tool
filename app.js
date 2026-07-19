@@ -251,10 +251,11 @@ function recomputePrices() {
   const crossFee = Number($("cross-fee")?.value) || 0;            // phụ phí Bắc-Nam đ/pallet
   const totalVol = ITEMS.reduce((s, it) => s + (Number(it.volume) || 0) * (Number(it.qty) || 0), 0);
   const totalQty = ITEMS.reduce((s, it) => s + (Number(it.qty) || 0), 0);
-  let over300 = false, shipPerVol = 0, shipPerUnitFlat = 0; // đ/m³ hoặc đ/đơn vị (khi chưa có m³)
+  let over300 = false, shipPerVol = 0, shipPerUnitFlat = 0, shipTotal = 0; // đ/m³ hoặc đ/đơn vị (khi chưa có m³)
   if (rateKm > 0 && km > 0) {
     // Mô hình đơn giản theo yêu cầu team: tổng vận chuyển = km × đơn giá/km, chia theo m³ (hoặc đều theo SL nếu chưa có m³)
     const totalShip = km * rateKm;
+    shipTotal = totalShip;
     if (totalVol > 0) shipPerVol = totalShip / totalVol;
     else if (totalQty > 0) shipPerUnitFlat = totalShip / totalQty;
   } else if (km1 > 300) {
@@ -264,6 +265,7 @@ function recomputePrices() {
     const cfg = totalVol < SHIP.threshold ? SHIP.ghep : SHIP.nguyen;
     const rate = (cfg.rates.find(([max]) => km <= max) || cfg.rates[2])[1];
     const totalShip = Math.max(rate * totalVol * km, cfg.min);
+    shipTotal = totalShip;
     shipPerVol = totalShip / totalVol;
   }
   let anyCross = false;
@@ -284,6 +286,34 @@ function recomputePrices() {
   $("status").textContent = over300
     ? "Trên 300 km mà chưa điền đơn giá/km: quy định yêu cầu liên hệ báo giá vận chuyển riêng - giá đang tính CHƯA gồm vận chuyển."
     : (km > 0 && rateKm === 0 && totalVol === 0 && ITEMS.length ? "Các SP chưa có thể tích (m³): điền 'Đơn giá VC đ/km' để tính vận chuyển chia đều theo SL, hoặc giá = giá NSX × 1.2." : "");
+  // Hộp thông tin phí vận chuyển (chỉ để tham khảo tại chỗ - KHÔNG in vào báo giá)
+  const sInfo = $("ship-info");
+  if (sInfo) {
+    if (!ITEMS.length) { sInfo.style.display = "none"; }
+    else {
+      const origin = "Kho ICD Hà Nội (Thăng Long A1, Thôn Bầu, Đông Anh, Hà Nội)";
+      let h = "";
+      if (km1 > 0) {
+        h += `<b>Khoảng cách:</b> ${km1} km (1 chiều, từ ${origin} → địa chỉ khách)`;
+        if (legs === 2) h += ` &middot; khứ hồi ×2 = <b>${km} km</b> để tính cước`;
+        h += "<br>";
+      } else {
+        h += `<b>Khoảng cách:</b> chưa có - nhập km hoặc bấm "Tính km".<br>`;
+      }
+      if (rateKm > 0 && km > 0) {
+        h += `<b>Đơn giá VC:</b> ${fmt(rateKm)} đ/km → phí vận chuyển = ${km} km × ${fmt(rateKm)} = <b>${fmt(Math.round(shipTotal))} đ</b>, chia theo ${totalVol > 0 ? "thể tích (m³)" : "số lượng"} cho từng SP.`;
+      } else if (over300) {
+        h += `<b>Đơn giá VC:</b> chưa nhập, mà trên 300 km → cần liên hệ báo giá cước riêng (giá hiện CHƯA gồm vận chuyển).`;
+      } else if (shipTotal > 0) {
+        h += `<b>Đơn giá VC:</b> chưa nhập → tính theo bảng ghép/nguyên xe cũ, phí vận chuyển ≈ <b>${fmt(Math.round(shipTotal))} đ</b>.`;
+      } else {
+        h += `<b>Đơn giá VC:</b> đang để TRỐNG (mặc định) → chưa tính cước theo km. Nhập số vào ô "Đơn giá VC đ/km" (vd 10.000, 20.000) để tính phí.`;
+      }
+      h += `<br><span style="color:#8a6d3b">Phí vận chuyển đã gộp sẵn vào đơn giá bán (×1.2) - KHÔNG hiện thành dòng riêng trên báo giá.</span>`;
+      sInfo.innerHTML = h;
+      sInfo.style.display = "block";
+    }
+  }
   recalc();
 }
 
