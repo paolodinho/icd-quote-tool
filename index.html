@@ -175,8 +175,31 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
     </div>
     <div id="sup-info" style="font-size:12.5px;color:var(--muted);margin:0 0 6px;display:none"></div>
     <div id="pick-list" style="max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:4px 10px;margin-bottom:8px"></div>
-    <button class="btn-sub" style="background:var(--dark);color:#fff" onclick="addSelected()">Đưa lên báo giá (<span id="tick-count">0</span> SP đã tick)</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn-sub" style="background:var(--dark);color:#fff;flex:2;min-width:180px" onclick="addSelected()">Đưa lên báo giá (<span id="tick-count">0</span> SP đã tick)</button>
+      <button class="btn-sub" style="background:#0F9D58;color:#fff;flex:1;min-width:150px" onclick="openNewProductMisa()" title="Nhập sản phẩm chưa có -> tạo luôn trên Misa CRM + thêm vào kho tool">+ SP mới (đẩy Misa)</button>
+    </div>
   </section>
+
+  <div id="np-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:flex-start;justify-content:center;overflow:auto;padding:30px 14px">
+    <div style="background:#fff;border-radius:10px;max-width:520px;width:100%;padding:22px 24px;box-shadow:0 10px 40px rgba(0,0,0,.25)">
+      <h2 style="margin:0 0 4px">Thêm sản phẩm mới</h2>
+      <p style="font-size:13px;color:var(--muted);margin:0 0 16px">Tạo trên Misa CRM và thêm vào kho giá của tool. Mã SP không được trùng.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div style="grid-column:1/3"><label>Mã sản phẩm <span style="color:#B91C1C">*</span></label><input id="np-code" placeholder="VD: OP30-3"></div>
+        <div style="grid-column:1/3"><label>Tên sản phẩm <span style="color:#B91C1C">*</span></label><input id="np-name" placeholder="VD: Pallet nhựa KT 1100x1100x150mm"></div>
+        <div><label>Đơn vị tính</label><input id="np-unit" value="Cái"></div>
+        <div><label>Nhóm SP</label><select id="np-group"></select></div>
+        <div><label>Giá mua NCC (VND)</label><input id="np-buy" type="number" min="0" value="0"></div>
+        <div><label>Giá bán (VND)</label><input id="np-price" type="number" min="0" value="0"></div>
+      </div>
+      <div id="np-status" style="display:none;font-size:13px;border-radius:6px;padding:9px 12px;margin-top:14px;line-height:1.5"></div>
+      <div style="display:flex;gap:10px;margin-top:18px">
+        <button class="btn-sub" style="background:#0F9D58;color:#fff;flex:2;padding:12px" onclick="submitNewProductMisa()">Tạo + đẩy lên Misa</button>
+        <button class="btn-sub" style="flex:1;padding:12px" onclick="closeNewProductMisa()">Đóng</button>
+      </div>
+    </div>
+  </div>
 
   <section>
     <h2>3. Phí vận chuyển & báo giá</h2>
