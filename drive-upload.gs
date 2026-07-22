@@ -1,25 +1,38 @@
 /**
- * ICD Quote Tool - Drive uploader (Google Apps Script Web App)
- * Nhận 4 file .xlsx từ công cụ tạo báo giá, tự xếp vào:
- *    [Thư mục gốc] / [PIC] / [Loại sản phẩm] / <file>.xlsx
+ * ICD Quote Tool - backend (Google Apps Script Web App)
+ * 2 việc:
+ *  (1) Lưu báo giá lên Drive: [Thư mục gốc]/[PIC]/[Loại SP]/<file>.xlsx  (action mặc định)
+ *  (2) Tạo sản phẩm mới trên Misa CRM  (action = "createProduct")
  *
  * CÀI 1 LẦN:
  *  1. Mở https://script.google.com  ->  New project.
  *  2. Xoá code mẫu, dán TOÀN BỘ file này vào.
- *  3. Deploy > New deployment > chọn type "Web app".
- *       - Execute as:  Me (chính bạn - chủ Drive)
- *       - Who has access:  Anyone
- *  4. Authorize (cho phép truy cập Drive).
- *  5. Copy URL dạng .../exec  ->  gửi lại cho Claude (hoặc dán vào tool khi được hỏi).
+ *  3. Muốn dùng tạo SP Misa: vào Project Settings (bánh răng) > Script Properties > Add property:
+ *       MISA_CLIENT_ID     = <client id Misa>
+ *       MISA_CLIENT_SECRET = <client secret Misa>
+ *       (KHÔNG hardcode credential trong code này vì file được push lên GitHub public.)
+ *  4. Deploy > New deployment > type "Web app": Execute as = Me, Who has access = Anyone.
+ *  5. Authorize. Copy URL .../exec -> gửi lại cho Claude (hoặc dán vào tool khi được hỏi).
+ *  Mỗi lần sửa code -> Deploy > Manage deployments > Edit > Version: New version (giữ nguyên URL).
  *
  * ĐỔI THƯ MỤC GỐC: sửa ROOT_FOLDER_ID bên dưới (lấy từ link Drive, phần sau /folders/).
  */
 
 var ROOT_FOLDER_ID = "1bfsrfmfed9bTPq2iuEyo9qBrRI1Fdenx";
+var MISA_BASE_URL = "https://crmconnect.misa.vn/api/v2";
 
 function doPost(e) {
   try {
     var body = JSON.parse(e.postData.contents);
+    if (body.action === "createProduct") return createMisaProduct_(body);
+    return saveToDrive_(body);
+  } catch (err) {
+    return json_({ ok: false, error: String(err) });
+  }
+}
+
+function saveToDrive_(body) {
+  try {
     var pic = sanitize_(body.pic) || "Khac";
     var productType = sanitize_(body.productType) || "Khac";
     var files = body.files || [];
@@ -50,9 +63,58 @@ function doPost(e) {
   }
 }
 
+// ---- Tạo sản phẩm mới trên Misa CRM ----
+function createMisaProduct_(body) {
+  var props = PropertiesService.getScriptProperties();
+  var cid = props.getProperty("MISA_CLIENT_ID");
+  var sec = props.getProperty("MISA_CLIENT_SECRET");
+  if (!cid || !sec) return json_({ ok: false, error: "Chưa cấu hình MISA_CLIENT_ID/SECRET trong Script Properties." });
+
+  // Lấy token
+  var authRes = UrlFetchApp.fetch(MISA_BASE_URL + "/Account", {
+    method: "post", contentType: "application/json",
+    payload: JSON.stringify({ client_id: cid, client_secret: sec }), muteHttpExceptions: true,
+  });
+  var token = null;
+  try { token = JSON.parse(authRes.getContentText()).data; } catch (e) {}
+  if (!token) return json_({ ok: false, error: "Đăng nhập Misa thất bại." });
+
+  // product_properties bắt buộc: mặc định "Hàng hóa" (Dịch vụ nếu nhóm là dịch vụ)
+  var props2 = /dịch\s*vụ/i.test(body.group || "") ? "Dịch vụ" : "Hàng hóa";
+  var rec = {
+    form_layout: "Mẫu tiêu chuẩn",
+    product_code: String(body.product_code || "").trim(),
+    product_name: String(body.product_name || "").trim(),
+    usage_unit: String(body.usage_unit || "Cái").trim(),
+    unit_price: Number(body.unit_price) || 0,
+    purchased_price: Number(body.purchased_price) || 0,
+    product_properties: props2,
+  };
+  // product_category: API create đòi ID (tên báo "không tồn tại") -> bỏ, để phân loại lại trong Misa.
+  if (!rec.product_code || !rec.product_name) return json_({ ok: false, error: "Thiếu Mã SP hoặc Tên SP." });
+
+  var h = { Authorization: "Bearer " + token, Clientid: cid };
+  var res = UrlFetchApp.fetch(MISA_BASE_URL + "/Products", {
+    method: "post", contentType: "application/json",
+    headers: h, payload: JSON.stringify([rec]), muteHttpExceptions: true,
+  });
+  var out = {};
+  try { out = JSON.parse(res.getContentText()); } catch (e) {}
+  var r0 = out.results && out.results[0];
+  if (out.success && r0 && r0.success) {
+    return json_({ ok: true, id: r0.data, product_code: rec.product_code });
+  }
+  var msg = "Tạo SP thất bại.";
+  if (r0 && r0.validate_infos && r0.validate_infos[0]) {
+    msg = r0.validate_infos[0].error_message + " (" + r0.validate_infos[0].field_name + ")";
+  }
+  return json_({ ok: false, error: msg, raw: out });
+}
+
 // Kiểm tra nhanh: mở URL /exec trên trình duyệt sẽ thấy dòng này.
 function doGet() {
-  return json_({ ok: true, service: "ICD quote drive uploader", root: ROOT_FOLDER_ID });
+  var hasMisa = !!PropertiesService.getScriptProperties().getProperty("MISA_CLIENT_ID");
+  return json_({ ok: true, service: "ICD quote backend", root: ROOT_FOLDER_ID, misaConfigured: hasMisa });
 }
 
 function getOrCreate_(parent, name) {

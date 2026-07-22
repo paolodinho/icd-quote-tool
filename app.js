@@ -721,6 +721,62 @@ async function saveToDrive() {
 }
 window.saveToDrive = saveToDrive;
 
+/* ---------- Thêm sản phẩm mới -> Misa CRM + kho tool ---------- */
+function npStatus(html, kind) {
+  const b = $("np-status"); b.style.display = "block";
+  b.style.background = kind === "err" ? "#FEF2F2" : kind === "ok" ? "#F0FDF4" : "#EFF6FF";
+  b.style.border = "1px solid " + (kind === "err" ? "#FCA5A5" : kind === "ok" ? "#86EFAC" : "#BFDBFE");
+  b.style.color = kind === "err" ? "#B91C1C" : "#1F2937";
+  b.innerHTML = html;
+}
+function openNewProductMisa() {
+  const groups = [...new Set(CATALOG.map((p) => (p.group || "").trim()).filter(Boolean))].sort();
+  const sel = $("np-group");
+  sel.innerHTML = '<option value="">(không nhóm)</option>' + groups.map((g) => `<option>${g}</option>`).join("");
+  $("np-code").value = ""; $("np-name").value = ""; $("np-unit").value = "Cái";
+  $("np-buy").value = 0; $("np-price").value = 0;
+  $("np-status").style.display = "none";
+  $("np-modal").style.display = "flex";
+}
+function closeNewProductMisa() { $("np-modal").style.display = "none"; }
+window.openNewProductMisa = openNewProductMisa;
+window.closeNewProductMisa = closeNewProductMisa;
+
+async function submitNewProductMisa() {
+  const code = $("np-code").value.trim();
+  const name = $("np-name").value.trim();
+  if (!code || !name) { npStatus("Nhập Mã SP và Tên SP.", "err"); return; }
+  if (CATALOG.some((p) => String(p.id).trim().toLowerCase() === code.toLowerCase())) {
+    npStatus("Mã SP này đã có trong kho tool.", "err"); return;
+  }
+  const unit = $("np-unit").value.trim() || "Cái";
+  const group = $("np-group").value;
+  const buyPrice = Number($("np-buy").value) || 0;
+  const price = Number($("np-price").value) || 0;
+  const endpoint = driveEndpoint();
+  if (!endpoint) { npStatus("Chưa cấu hình endpoint Apps Script.", "err"); return; }
+
+  npStatus("Đang tạo trên Misa…", "info");
+  const payload = { action: "createProduct", product_code: code, product_name: name, usage_unit: unit, unit_price: price, purchased_price: buyPrice, group };
+  try {
+    const resp = await fetch(endpoint, { method: "POST", body: JSON.stringify(payload) });
+    let data = null; try { data = await resp.json(); } catch (_) {}
+    if (data && data.ok) {
+      // thêm vào kho tool để dùng báo giá ngay
+      CATALOG.push({ id: code, name, desc: "", unit, group, price, buyPrice, stock: 0, priceUpdated: todayISO(), supplier: "", note: "Tạo từ tool báo giá -> Misa " + todayISO() });
+      saveLocal();
+      npStatus(`Đã tạo trên Misa (ID ${data.id || "?"}) và thêm vào kho tool. Tìm "${code}" ở danh sách để đưa lên báo giá.`, "ok");
+    } else if (data && data.error) {
+      npStatus("Misa báo: " + data.error, "err");
+    } else {
+      npStatus("Không đọc được phản hồi từ Misa. Kiểm tra lại trên Misa xem đã tạo chưa.", "err");
+    }
+  } catch (e) {
+    npStatus("Lỗi gửi: " + e.message, "err");
+  }
+}
+window.submitNewProductMisa = submitNewProductMisa;
+
 /* ---------- Init ---------- */
 function bootApp() {
   $("m-date").value = todayISO();
