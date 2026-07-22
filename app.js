@@ -641,7 +641,7 @@ window.downloadOne = downloadOne;
 
 /* ---------- Lưu lên Google Drive (qua Apps Script Web App) ---------- */
 // Endpoint = URL /exec của Apps Script đã deploy. Điền sau khi deploy (hoặc tool tự hỏi 1 lần, lưu localStorage).
-const DRIVE_ENDPOINT_DEFAULT = "PASTE_APPS_SCRIPT_EXEC_URL";
+const DRIVE_ENDPOINT_DEFAULT = "https://script.google.com/macros/s/AKfycbwjzSI-aR_kKEW58w9fWNnE1rrZLQa6Ynw1oimZvs8twWIywfNOC-TVOV8DWMYMUiDfZg/exec";
 function driveEndpoint() {
   const saved = localStorage.getItem("icd_drive_endpoint");
   if (saved) return saved;
