@@ -137,6 +137,7 @@ function addFromHistory(i) {
     buyHint: cat?.buyPrice || 0,
     volume: cat?.volume || 0,
     region: supRegion(cat?.supplier),
+    group: cat?.group || "",
     note: "",
   });
   renderItems();
@@ -407,7 +408,7 @@ function addSelected() {
   for (const id of TICKED) {
     const p = CATALOG.find((x) => String(x.id) === String(id));
     if (!p) continue;
-    ITEMS.push({ desc: [p.name, p.desc].filter(Boolean).join("\n"), unit: p.unit || "Cái", qty: 100, price: autoPrice(p), buyHint: p.buyPrice || 0, volume: p.volume || 0, region: supRegion(p.supplier), manual: false, note: "" });
+    ITEMS.push({ desc: [p.name, p.desc].filter(Boolean).join("\n"), unit: p.unit || "Cái", qty: 100, price: autoPrice(p), buyHint: p.buyPrice || 0, volume: p.volume || 0, region: supRegion(p.supplier), group: p.group || "", manual: false, note: "" });
   }
   TICKED.clear();
   renderPickList();
@@ -637,6 +638,88 @@ async function downloadOne(key) {
   }
 }
 window.downloadOne = downloadOne;
+
+/* ---------- Lưu lên Google Drive (qua Apps Script Web App) ---------- */
+// Endpoint = URL /exec của Apps Script đã deploy. Điền sau khi deploy (hoặc tool tự hỏi 1 lần, lưu localStorage).
+const DRIVE_ENDPOINT_DEFAULT = "PASTE_APPS_SCRIPT_EXEC_URL";
+function driveEndpoint() {
+  const saved = localStorage.getItem("icd_drive_endpoint");
+  if (saved) return saved;
+  if (DRIVE_ENDPOINT_DEFAULT && DRIVE_ENDPOINT_DEFAULT.startsWith("http")) return DRIVE_ENDPOINT_DEFAULT;
+  const u = prompt("Dán URL Apps Script (…/exec) để lưu báo giá lên Google Drive.\nChỉ cần dán 1 lần, tool sẽ nhớ trên máy này:");
+  if (u && u.trim().startsWith("http")) { localStorage.setItem("icd_drive_endpoint", u.trim()); return u.trim(); }
+  return null;
+}
+
+// Loại sản phẩm của báo giá = nhóm (group) chiếm nhiều dòng nhất; nhiều nhóm khác nhau -> "Tong hop".
+function quoteProductType() {
+  const groups = ITEMS.map((it) => (it.group || "").trim()).filter(Boolean);
+  if (!groups.length) return "Khac";
+  const uniq = [...new Set(groups)];
+  if (uniq.length === 1) return uniq[0];
+  const count = {}; groups.forEach((g) => (count[g] = (count[g] || 0) + 1));
+  const top = uniq.sort((a, b) => count[b] - count[a]);
+  return count[top[0]] >= Math.ceil(groups.length * 0.7) ? top[0] : "Tong hop";
+}
+
+function blobToB64(blob) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(",")[1]);
+    r.onerror = rej;
+    r.readAsDataURL(blob);
+  });
+}
+
+function driveMsg(html, kind) {
+  const box = $("drive-status");
+  box.style.display = "block";
+  box.style.background = kind === "err" ? "#FEF2F2" : kind === "ok" ? "#F0FDF4" : "#EFF6FF";
+  box.style.border = "1px solid " + (kind === "err" ? "#FCA5A5" : kind === "ok" ? "#86EFAC" : "#BFDBFE");
+  box.style.color = kind === "err" ? "#B91C1C" : "#1F2937";
+  box.innerHTML = html;
+}
+
+async function saveToDrive() {
+  if (!ITEMS.length) { alert("Chưa có sản phẩm nào trong báo giá."); return; }
+  if (!$("c-messrs").value.trim()) { alert("Nhập tên khách hàng."); return; }
+  const endpoint = driveEndpoint();
+  if (!endpoint) { driveMsg("Chưa cấu hình Apps Script - không lưu được lên Drive.", "err"); return; }
+  const quote = buildQuote();
+  const pic = (quote.meta.pic || "Khac").replace(/[\\/:*?"<>|]+/g, "-").trim() || "Khac";
+  const productType = quoteProductType().replace(/[\\/:*?"<>|]+/g, "-").trim() || "Khac";
+  const safeNo = (quote.meta.quotNo || "BaoGia").replace(/[^\w-]+/g, "-");
+  driveMsg(`Đang tạo 4 mẫu và tải lên Drive… (PIC: <b>${pic}</b> · Loại: <b>${productType}</b>)`, "info");
+
+  const files = [];
+  for (const key of Object.keys(XlsxFill.TEMPLATES)) {
+    try {
+      const blob = await XlsxFill.generate(key, quote);
+      files.push({ name: `${safeNo}_${key}.xlsx`, b64: await blobToB64(blob) });
+    } catch (e) {
+      driveMsg(`Lỗi tạo mẫu ${key}: ${e.message}`, "err"); return;
+    }
+  }
+
+  const payload = { pic, productType, customer: quote.customer.messrs, quotNo: quote.meta.quotNo, files };
+  try {
+    const resp = await fetch(endpoint, { method: "POST", body: JSON.stringify(payload) }); // text/plain -> không preflight CORS
+    let data = null;
+    try { data = await resp.json(); } catch (_) {}
+    if (data && data.ok) {
+      const link = data.folderUrl ? ` <a href="${data.folderUrl}" target="_blank" rel="noopener">Mở thư mục</a>` : "";
+      driveMsg(`Đã lưu 4 mẫu lên Drive: <b>${pic} / ${productType}</b>.${link}`, "ok");
+    } else if (data && data.error) {
+      driveMsg(`Apps Script báo lỗi: ${data.error}`, "err");
+    } else {
+      // Không đọc được JSON (CORS opaque) nhưng request đã gửi - báo tạm, nhắc kiểm tra Drive.
+      driveMsg(`Đã gửi lên Drive (thư mục <b>${pic} / ${productType}</b>). Mở Drive kiểm tra giúp - nếu chưa thấy, báo lại để chỉnh quyền.`, "info");
+    }
+  } catch (e) {
+    driveMsg(`Không gửi được lên Drive: ${e.message}. Kiểm tra URL Apps Script (localStorage 'icd_drive_endpoint').`, "err");
+  }
+}
+window.saveToDrive = saveToDrive;
 
 /* ---------- Init ---------- */
 function bootApp() {

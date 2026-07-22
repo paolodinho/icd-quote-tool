@@ -225,6 +225,8 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
           <option value="Le Van Thang (0983797186)">Le Van Thang (0983797186)</option>
           <option value="Đỗ Thị Thanh Huyền (0979305186)">Đỗ Thị Thanh Huyền (0979305186)</option>
           <option value="Đỗ Thị Thu Trang (0905859186)">Đỗ Thị Thu Trang (0905859186)</option>
+          <option value="Nguyễn Lý (0986784188)">Nguyễn Lý (0986784188)</option>
+          <option value="Nguyễn Thị Hồng">Nguyễn Thị Hồng</option>
         </select></div>
         <div><label>Incoterms <span class="tag auto">mặc định</span></label><input id="m-incoterms" value="DAP (Giao hàng tại kho bên mua, đã bao gồm phí vận chuyển)"></div>
         <div><label>Leadtime <span class="tag auto">mặc định</span></label><input id="m-leadtime" value="1-2 tuần"></div>
@@ -267,7 +269,9 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
   <div id="dl-row" style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
     <button class="btn-main" style="flex:2;margin-top:0;min-width:220px" onclick="downloadOne(window.PREVIEW_TAB)">Tải mẫu đang xem: <span id="dl-one-label">Mẫu 1</span></button>
     <button class="btn-sub" style="flex:1;min-width:150px;background:var(--dark);color:#fff;font-size:14px;padding:13px 16px" onclick="generateAll()">Tải cả 4 mẫu .xlsx</button>
+    <button class="btn-sub" style="flex:1;min-width:170px;background:#1a73e8;color:#fff;font-size:14px;padding:13px 16px" onclick="saveToDrive()" title="Lưu 4 mẫu lên Google Drive, tự xếp thư mục theo PIC và loại sản phẩm">Lưu lên Google Drive</button>
   </div>
+  <div id="drive-status" style="display:none;font-size:13px;border-radius:6px;padding:9px 13px;margin-top:10px;line-height:1.6"></div>
   <div id="status"></div>
   <div class="downloads" id="downloads"></div>
 </div>
