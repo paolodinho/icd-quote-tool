@@ -193,6 +193,7 @@ const SUPPLIERS = {
   "CP XNK Hòa An":         { region: "bac", addr: "23 Lê Văn Lương, Nhân Chính, Thanh Xuân, Hà Nội (NM: KCN Khai Sơn, Thuận Thành, Bắc Ninh)" },
   "Nhựa Bình Thuận":       { region: "bac", addr: "Times City, 458 Minh Khai, Hai Bà Trưng, Hà Nội (NM: Thanh Trì HN / Hải Dương / Hà Nam)" },
   "Nhựa Tuệ Minh":         { region: "bac", addr: "Km3, Đường 376, Xã Giai Phạm, Yên Mỹ, Hưng Yên" },
+  "Trường Phát":           { region: "bac", addr: "Hà Nội" },
   "Shanghai We Pack":      { region: "nhap", addr: "Thượng Hải, Trung Quốc (hàng nhập khẩu)" },
 };
 function supRegion(name) { return SUPPLIERS[name]?.region || ""; }
