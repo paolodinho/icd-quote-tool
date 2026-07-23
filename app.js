@@ -354,7 +354,10 @@ function recomputePrices() {
 
 function renderSupplierFilter() {
   const cur = $("supplier-filter").value;
-  const sups = [...new Set(CATALOG.map((p) => (p.supplier || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "vi"));
+  const sups = [...new Set([
+    ...Object.keys(SUPPLIERS),
+    ...CATALOG.map((p) => (p.supplier || "").trim()).filter(Boolean)
+  ])].sort((a, b) => a.localeCompare(b, "vi"));
   $("supplier-filter").innerHTML = '<option value="">NCC: tất cả</option>'
     + sups.map((s) => `<option value="${s.replace(/"/g, "&quot;")}">${s}</option>`).join("")
     + '<option value="__none__">Chưa rõ NCC</option>';
