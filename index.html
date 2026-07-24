@@ -11,12 +11,26 @@
   --border:#E5E1DA; --bg:#F6F4F0; --card:#fff; --muted:#6B7280;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--dark);font-size:15px;line-height:1.55}
-header{background:var(--dark);color:#fff;padding:14px 24px;display:flex;align-items:baseline;gap:14px;flex-wrap:nowrap}
-header h1{font-size:19px;letter-spacing:-0.02em;white-space:nowrap}
-header span{color:#B7C2C8;font-size:13px;letter-spacing:0.06em;text-transform:uppercase;white-space:nowrap}
+html{overflow-x:hidden}
+body{font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--dark);font-size:15px;line-height:1.55;overflow-x:hidden}
+header{background:var(--dark);color:#fff;padding:14px 24px;display:flex;align-items:baseline;gap:6px 14px;flex-wrap:wrap}
+header h1{font-size:19px;letter-spacing:-0.02em}
+header span{color:#B7C2C8;font-size:13px;letter-spacing:0.06em;text-transform:uppercase}
 main{max-width:1440px;margin:18px auto;padding:0 16px;display:grid;grid-template-columns:var(--leftw,minmax(380px,0.9fr)) 16px minmax(0,1.25fr);gap:0;align-items:start}
-@media(max-width:980px){main{grid-template-columns:1fr}#col-gutter{display:none}}
+@media(max-width:980px){main{grid-template-columns:1fr}#col-gutter{display:none}#main-left,#preview-pane{min-width:0}}
+/* Grid item mặc định min-width:auto khiến nội dung rộng (bảng, A4 preview) đẩy phình cả cột trên mọi bề rộng - luôn ép về 0 để overflow xử lý bằng scroll nội bộ, không phá layout trang. */
+#main-left,#preview-pane{min-width:0}
+.items-table-wrap{width:100%;overflow-x:auto}
+@media(max-width:600px){
+  header{padding:12px 14px}
+  header h1{font-size:16px}
+  main{padding:0 10px;margin:12px auto}
+  section{padding:14px 14px}
+  .grid2{grid-template-columns:1fr}
+  input,textarea,select{font-size:16px}   /* >=16px: iOS không tự zoom khi focus */
+  .pv2-paper{font-size:9.5px}
+  #pv-full-body .pv2-paper{zoom:1}
+}
 .col-gutter{align-self:stretch;cursor:col-resize;position:relative;min-height:240px;touch-action:none}
 .col-gutter::before{content:"";position:absolute;top:0;bottom:0;left:50%;transform:translateX(-50%);width:4px;border-radius:3px;background:var(--border)}
 .col-gutter:hover::before,.col-gutter.drag::before{background:var(--orange)}
@@ -224,9 +238,11 @@ button{cursor:pointer;border:none;border-radius:5px;font-weight:700;font-size:14
       &bull; Sửa tay đơn giá 1 dòng thì dòng đó giữ nguyên, không bị tính lại.
     </div>
     <div id="ship-info" style="font-size:12.5px;background:#FFF8F2;border:1px solid #FFE0C2;border-radius:6px;padding:9px 12px;margin:0 0 10px;line-height:1.55;display:none"></div>
+    <div class="items-table-wrap">
     <table class="items-table" id="items"><thead>
       <tr><th style="width:26px">#</th><th>Mô tả sản phẩm</th><th style="width:60px">ĐVT</th><th style="width:64px">SL</th><th style="width:104px">Đơn giá</th><th style="width:106px">Thành tiền</th><th style="width:66px">Tỉ lệ lãi</th><th style="width:74px">Ảnh</th><th style="width:30px"></th></tr>
     </thead><tbody></tbody></table>
+    </div>
     <div class="totals">
       <div><span>Tổng chưa VAT</span><b class="num" id="t-sub">0</b></div>
       <div><span>VAT <select id="vat" style="width:70px;display:inline-block" onchange="recalc()"><option>8</option><option>10</option><option>0</option></select> %</span><b class="num" id="t-vat">0</b></div>
