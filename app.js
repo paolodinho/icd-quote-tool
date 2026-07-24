@@ -30,6 +30,21 @@ function syncAuto() {
   $("show-validity").textContent = isoToVN($("m-validity").value);
 }
 
+// Tải danh sách SP tạo mới qua tool (từ Apps Script) - lỗi/không cấu hình endpoint thì bỏ qua lặng lẽ,
+// không chặn tool nếu offline hoặc chưa deploy.
+async function fetchNewProducts_() {
+  const endpoint = (() => { try { return driveEndpoint(); } catch (e) { return null; } })();
+  if (!endpoint) return [];
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 6000);
+    const res = await fetch(endpoint + "?action=newProducts", { signal: ctrl.signal });
+    clearTimeout(t);
+    const data = await res.json();
+    return (data && data.ok && Array.isArray(data.products)) ? data.products : [];
+  } catch (e) { return []; }
+}
+
 /* ---------- Kho giá ---------- */
 async function loadCatalog() {
   // Nguồn chính: dữ liệu đã giải mã qua cổng mật khẩu (window.__DATA).
@@ -43,11 +58,18 @@ async function loadCatalog() {
       base = (await res.json()).products || [];
     } catch (e) { /* offline: dùng localStorage */ }
   }
+  // SP tạo mới qua tool (nút "+ SP mới -> Misa") - ghi vào file dùng chung trên Drive,
+  // để MÁY/TRÌNH DUYỆT KHÁC cũng thấy ngay, không chỉ máy vừa bấm tạo.
+  const remote = await fetchNewProducts_();
   let local = [];
   try { local = JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch (e) {}
   // merge theo id - bản có priceUpdated mới hơn thắng
   const map = new Map();
   for (const p of base) map.set(p.id, p);
+  for (const p of remote) {
+    const cur = map.get(p.id);
+    if (!cur || (p.priceUpdated || "") >= (cur.priceUpdated || "")) map.set(p.id, p);
+  }
   for (const p of local) {
     const cur = map.get(p.id);
     if (!cur || (p.priceUpdated || "") >= (cur.priceUpdated || "")) map.set(p.id, p);
