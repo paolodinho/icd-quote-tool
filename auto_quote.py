@@ -450,10 +450,15 @@ def send_email(subject, body, attachments, test_mode=True):
         msg.attach(part)
 
     ctx = ssl.create_default_context()
-    with smtplib.SMTP(host, port) as server:
-        server.starttls(context=ctx)
-        server.login(user, pw)
-        server.sendmail(user, to_addrs, msg.as_string())
+    if port == 465:
+        with smtplib.SMTP_SSL(host, port, context=ctx) as server:
+            server.login(user, pw)
+            server.sendmail(user, to_addrs, msg.as_string())
+    else:
+        with smtplib.SMTP(host, port) as server:
+            server.starttls(context=ctx)
+            server.login(user, pw)
+            server.sendmail(user, to_addrs, msg.as_string())
     return True
 
 
