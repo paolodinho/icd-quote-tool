@@ -492,11 +492,16 @@ def openrouter_cover_message(customer_name, category_label):
     import urllib.request
 
     prompt = (
-        "Viết 1 đoạn email tiếng Việt ngắn gọn (60-90 từ), giọng B2B chuyên nghiệp, "
-        f"gửi kèm bảng báo giá {category_label} tự động cho khách hàng tên "
-        f"'{customer_name or 'Quý khách'}' của công ty ICD Việt Nam. Không chào hỏi thừa, "
-        "không emoji, không bịa số liệu/cam kết cụ thể ngoài việc báo giá có hiệu lực 15 ngày "
-        "và mời liên hệ hotline 0983 797 186 khi cần tư vấn thêm."
+        "Bạn là nhân viên kinh doanh B2B của ICD Việt Nam, viết email báo giá gửi khách hàng "
+        "doanh nghiệp — văn phong trang trọng, chỉn chu, đúng chuẩn thư từ thương mại tiếng Việt "
+        "(không phải văn nói, không viral, không sáo rỗng).\n\n"
+        f"Viết phần NỘI DUNG email (60-90 từ) kèm bảng báo giá {category_label} tự động gửi "
+        f"khách hàng '{customer_name or 'Quý khách'}'. Nội dung: xác nhận đã nhận yêu cầu, gửi kèm "
+        "báo giá tham khảo (đính kèm), báo giá có hiệu lực 15 ngày, mời liên hệ hotline 0983 797 186 "
+        "để được tư vấn/xác nhận đơn hàng cụ thể. Không bịa thêm số liệu/cam kết nào khác.\n\n"
+        "QUY TẮC XUẤT KẾT QUẢ - BẮT BUỘC: chỉ trả về DUY NHẤT nội dung email hoàn chỉnh bằng "
+        "tiếng Việt (bắt đầu bằng 'Kính gửi'), không kèm bất kỳ giải thích, suy luận, ghi chú, "
+        "tiêu đề, markdown, hay câu tiếng Anh nào khác."
     )
 
     # Rẻ trước, free fallback sau (lấy động qua /models — không hardcode id free vì
@@ -509,14 +514,22 @@ def openrouter_cover_message(customer_name, category_label):
         )
         with urllib.request.urlopen(req, timeout=15) as resp:
             all_ids = [m["id"] for m in json.loads(resp.read().decode("utf-8"))["data"]]
-        models += [i for i in all_ids if i.endswith(":free")][:5]
+        # Chi lay free model TU NHOM DANG TIN (gpt-oss, gemma, glm, qwen ban lon) - da thu
+        # nghiem thay nhieu model free nho/preview bia sai ten cong ty, lo the <think>, chen
+        # placeholder [Chu ky] khi viet tieng Viet formal -> qua rui ro cho email gui khach.
+        trusted_prefixes = ("openai/gpt-oss", "google/gemma", "z-ai/glm", "qwen/")
+        skip = ("nano", "lightning", "mini", "preview", "-2b", "-1b", "small", "note")
+        models += [
+            i for i in all_ids
+            if i.endswith(":free") and i.startswith(trusted_prefixes) and not any(s in i.lower() for s in skip)
+        ][:4]
     except Exception:
         pass
 
     for model in models:
         try:
             body = json.dumps(
-                {"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": 300}
+                {"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": 400}
             ).encode("utf-8")
             req = urllib.request.Request(
                 "https://openrouter.ai/api/v1/chat/completions",
@@ -526,13 +539,49 @@ def openrouter_cover_message(customer_name, category_label):
             with urllib.request.urlopen(req, timeout=20) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
             text = (data["choices"][0]["message"]["content"] or "").strip()
-            if text:
+            text = _clean_llm_email(text)
+            if _is_valid_email_text(text):
                 return text
+            print(f"[auto_quote] OpenRouter model {model} trả về output không hợp lệ (lộ reasoning/tiếng Anh/markdown), thử model kế tiếp.", file=sys.stderr)
         except Exception as e:
             print(f"[auto_quote] OpenRouter model {model} lỗi ({e}), thử model kế tiếp.", file=sys.stderr)
             continue
-    print("[auto_quote] Mọi model OpenRouter đều lỗi, dùng email mẫu mặc định.", file=sys.stderr)
+    print("[auto_quote] Mọi model OpenRouter đều lỗi/không hợp lệ, dùng email mẫu mặc định.", file=sys.stderr)
     return fallback
+
+
+def _clean_llm_email(text):
+    """Cat bo <think>...</think>, code fence, va phan preamble truoc dong 'Kinh gui' neu co -
+    vai model free ro CoT/giai thich truoc khi vao noi dung that."""
+    text = re.sub(r"<think>[\s\S]*?</think>", "", text, flags=re.I).strip()
+    text = re.sub(r"^```[a-z]*\n?|\n?```$", "", text.strip(), flags=re.I).strip()
+    m = re.search(r"Kính gửi", text)
+    if m and m.start() > 0:
+        text = text[m.start():]
+    return text.strip()
+
+
+def _is_valid_email_text(text):
+    """Loai output rac: lo reasoning tieng Anh, markdown, placeholder chua dien, ten cong ty
+    bia sai (phai la ICD Viet Nam, khong duoc doi ten khac), hoac qua ngan/dai."""
+    if not text or not text.startswith("Kính gửi"):
+        return False
+    bad_markers = (
+        "thinking process", "here's a", "let's plan", "i'll aim", "**format:**",
+        "analyze the request", "word count", "##", "- **", "<think", "</think",
+        "[chữ ký]", "[chức", "[email]", "[tên",
+    )
+    low = text.lower()
+    if any(m in low for m in bad_markers):
+        return False
+    if "[" in text or "]" in text:
+        return False  # placeholder chua dien kieu [Chu ky]/[Ten]
+    if "icd" not in low:
+        return False  # phai nhac dung ten cong ty that, khong duoc bia ten khac
+    if text.count("Kính gửi") > 1:
+        return False  # model sinh 2 ban nhap dinh vao nhau
+    word_count = len(text.split())
+    return 20 <= word_count <= 150
 
 
 def _load_env_value(key):
