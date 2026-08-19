@@ -107,6 +107,73 @@ def load_catalog_items(category: str):
     return items
 
 
+_DIM_RE = re.compile(r"(\d{2,4})\s*[x×\*]\s*(\d{2,4})(?:\s*[x×\*]\s*(\d{2,4}))?", re.I)
+
+
+def _extract_dims(text):
+    """Tra ve list cac bo kich thuoc (vd ['600x400x300']) nhac toi trong text."""
+    out = []
+    for m in _DIM_RE.finditer(text or ""):
+        nums = [g for g in m.groups() if g]
+        out.append("x".join(nums))
+    return out
+
+
+def filter_items_by_needs(items, needs_text, category):
+    """Loc catalog theo DUNG loai/kich thuoc khach hoi (yeu cau Hieu 2026-08-19: khong
+    duoc dua ca catalogue neu khach da noi ro kich thuoc can). Uu tien regex kich thuoc
+    (nhanh, chinh xac); neu khong tim thay dim nao trong needs, dung OpenRouter tach
+    tu khoa san pham roi loc theo tu khoa; khong loc duoc gi ca -> tra ve nguyen catalog
+    (co canh bao) de khong gui bao gia RONG cho khach."""
+    dims = _extract_dims(needs_text)
+    if dims:
+        matched = [it for it in items if any(d in it["desc"].replace(" ", "").replace("×", "x").replace("*", "x").lower() for d in [d.lower() for d in dims])]
+        if matched:
+            return matched, f"lọc theo kích thước {', '.join(dims)}"
+
+    keywords = _openrouter_extract_keywords(needs_text, category)
+    if keywords:
+        kw_lower = [k.lower() for k in keywords]
+        matched = [it for it in items if any(k in it["desc"].lower() for k in kw_lower)]
+        if matched:
+            return matched, f"lọc theo từ khoá {', '.join(keywords)}"
+
+    print(f"[auto_quote] Không lọc được SP cụ thể từ needs ({needs_text!r}), dùng toàn bộ catalog nhóm.", file=sys.stderr)
+    return items, "toàn bộ catalog (không tách được yêu cầu cụ thể)"
+
+
+def _openrouter_extract_keywords(needs_text, category):
+    api_key = _load_env_value("OPENROUTER_API_KEY")
+    if not api_key or not needs_text:
+        return []
+    import urllib.request
+
+    prompt = (
+        f"Khách hỏi mua {CATEGORY_LABEL.get(category, '')} ICD Việt Nam, nguyên văn nhu cầu: "
+        f"\"{needs_text}\". Trích ra 1-4 từ khoá NGẮN (tên loại/kích thước/màu/chất liệu cụ thể) "
+        "để lọc đúng sản phẩm khách cần trong danh mục, dạng JSON array of strings, không giải thích gì thêm. "
+        'Ví dụ: ["600x400", "màu xanh"]. Không có thông tin cụ thể thì trả về [].'
+    )
+    try:
+        body = json.dumps(
+            {"model": "deepseek/deepseek-chat", "messages": [{"role": "user", "content": prompt}], "max_tokens": 100}
+        ).encode("utf-8")
+        req = urllib.request.Request(
+            "https://openrouter.ai/api/v1/chat/completions",
+            data=body,
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        text = data["choices"][0]["message"]["content"].strip()
+        text = re.sub(r"^```(json)?|```$", "", text.strip(), flags=re.M).strip()
+        kws = json.loads(text)
+        return [k for k in kws if isinstance(k, str) and k.strip()]
+    except Exception as e:
+        print(f"[auto_quote] OpenRouter trích từ khoá lỗi ({e}).", file=sys.stderr)
+        return []
+
+
 # ---------------------------------------------------------------------------
 # 3) Port xlsx-fill.js -> Python (chi phan can cho bao gia dang bang gia, khong anh)
 # ---------------------------------------------------------------------------
@@ -482,6 +549,40 @@ def _load_env_value(key):
     return os.environ.get(key, "")
 
 
+def fetch_misa_lead(phone):
+    """Lay full thong tin 1 lead da day len MISA (theo account_number ZALO-{phone}):
+    ten nguoi lien he, cong ty, MST, dia chi, needs. Dung de khong phai go tay tung
+    field qua CLI - phan anh dung du lieu that MISA da co."""
+    import httpx
+
+    digits = re.sub(r"[^0-9]", "", phone or "")
+    client_id = _load_env_value("MISA_CLIENT_ID") or "saleai"
+    client_secret = _load_env_value("MISA_CLIENT_SECRET") or _load_env_value("MISA_API_KEY")
+    base_url = _load_env_value("MISA_BASE_URL") or "https://crmconnect.misa.vn/api/v2"
+    with httpx.Client(timeout=15.0) as c:
+        r = c.post(f"{base_url}/Account", json={"client_id": client_id, "client_secret": client_secret})
+        token = r.json().get("data")
+        if not token:
+            raise RuntimeError("MISA auth thất bại")
+        headers = {"Authorization": f"Bearer {token}", "Clientid": client_id, "Content-Type": "application/json"}
+        r2 = c.get(f"{base_url}/Customers", headers=headers, params={"$top": 50, "$orderby": "created_date desc"})
+    for cust in r2.json().get("data", []):
+        if cust.get("account_number") == f"ZALO-{digits}":
+            desc = cust.get("description") or ""
+            name_m = re.search(r"Người liên hệ:\s*([^|]+)", desc)
+            needs_m = re.search(r"Nhu cầu/SP:\s*(.+)$", desc)
+            return {
+                "name": (name_m.group(1).strip() if name_m else ""),
+                "company": cust.get("account_name") or "",
+                "phone": digits,
+                "tax_code": cust.get("tax_code") or "",
+                "address": cust.get("billing_address") or "",
+                "email": cust.get("office_email") or "",
+                "needs": (needs_m.group(1).strip() if needs_m else desc),
+            }
+    raise RuntimeError(f"Không tìm thấy lead MISA cho SĐT {digits}")
+
+
 # ---------------------------------------------------------------------------
 # 6) Gui email (SMTP tu chatbot/.env)
 # ---------------------------------------------------------------------------
@@ -530,11 +631,14 @@ def send_email(subject, body, attachments, test_mode=True):
 # ---------------------------------------------------------------------------
 
 
-def generate_and_send(category, customer_name="", customer_company="", customer_phone="", send=False, test_mode=True):
+def generate_and_send(category, customer_name="", customer_company="", customer_phone="", customer_address="", customer_tax_code="", customer_email="", needs_text="", send=False, test_mode=True):
     items = load_catalog_items(category)
     if not items:
         raise RuntimeError(f"Không có sản phẩm nào trong nhóm '{category}' có giá NCC hợp lệ.")
-    quote = build_quote(customer_name, customer_company, customer_phone, items)
+    if needs_text:
+        items, filter_note = filter_items_by_needs(items, needs_text, category)
+        print(f"[auto_quote] {filter_note} → còn {len(items)} dòng SP")
+    quote = build_quote(customer_name, customer_company, customer_phone, items, customer_address, customer_tax_code, customer_email)
 
     os.makedirs(OUT_DIR, exist_ok=True)
     attachments = []
@@ -559,19 +663,45 @@ def generate_and_send(category, customer_name="", customer_company="", customer_
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--category", choices=list(CATEGORY_GROUPS), required=True)
+    ap.add_argument("--category", choices=list(CATEGORY_GROUPS))
     ap.add_argument("--customer-name", default="")
     ap.add_argument("--customer-company", default="")
     ap.add_argument("--customer-phone", default="")
+    ap.add_argument("--customer-address", default="")
+    ap.add_argument("--customer-tax-code", default="")
+    ap.add_argument("--customer-email", default="")
+    ap.add_argument("--from-misa-phone", default="", help="Lấy toàn bộ thông tin lead (tên, công ty, MST, địa chỉ, needs) trực tiếp từ MISA CRM theo SĐT, tự phát hiện category từ needs")
     ap.add_argument("--send", action="store_true")
     ap.add_argument("--prod", action="store_true", help="Gửi thật (sales@/hong.nt@) - CHỈ dùng khi Hiếu đã xác nhận OK bản test")
     args = ap.parse_args()
 
+    category = args.category
+    name, company, phone, address, tax_code, email = (
+        args.customer_name, args.customer_company, args.customer_phone,
+        args.customer_address, args.customer_tax_code, args.customer_email,
+    )
+    needs_text = ""
+
+    if args.from_misa_phone:
+        lead = fetch_misa_lead(args.from_misa_phone)
+        name, company, phone = lead["name"], lead["company"], lead["phone"]
+        address, tax_code, email = lead["address"], lead["tax_code"], lead["email"]
+        needs_text = lead["needs"]
+        category = category or detect_category(needs_text)
+        print(f"[auto_quote] Lead MISA: {name} | {company} | {phone} | needs={needs_text[:80]} | category={category}")
+
+    if not category:
+        ap.error("--category bắt buộc (hoặc suy ra được từ --from-misa-phone)")
+
     generate_and_send(
-        args.category,
-        customer_name=args.customer_name,
-        customer_company=args.customer_company,
-        customer_phone=args.customer_phone,
+        category,
+        customer_name=name,
+        customer_company=company,
+        customer_phone=phone,
+        customer_address=address,
+        customer_tax_code=tax_code,
+        customer_email=email,
+        needs_text=needs_text,
         send=args.send,
         test_mode=not args.prod,
     )
