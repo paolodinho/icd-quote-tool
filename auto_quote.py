@@ -79,6 +79,8 @@ PIC_EMAIL_MAP = {
     "hồng": "hong.nt@icdvietnam.com.vn",
     "hong": "hong.nt@icdvietnam.com.vn",
     "trang": "trang.dtt@icdvietnam.com.vn",
+    "hiếu": "hieudx3107@gmail.com",
+    "hieu": "hieudx3107@gmail.com",
 }
 PIC_DEFAULT_EMAIL = "sales@icdvietnam.com.vn"
 
@@ -520,10 +522,21 @@ def _load_env_value(key):
     return os.environ.get(key, "")
 
 
+def _clean_pic_name(owner_name: str) -> str:
+    """MISA owner_name co dang "Ten Nhan Vien (ma/sdt)" - bo phan (...) cho gon
+    tren ban bao gia in cho khach, nhung van giu dc de match PIC_EMAIL_MAP theo ten."""
+    if not owner_name:
+        return ""
+    return re.sub(r"\s*\([^)]*\)\s*$", "", owner_name).strip()
+
+
 def fetch_misa_lead(phone):
-    """Lay full thong tin 1 lead da day len MISA (theo account_number ZALO-{phone}):
-    ten nguoi lien he, cong ty, MST, dia chi, needs. Dung de khong phai go tay tung
-    field qua CLI - phan anh dung du lieu that MISA da co."""
+    """Lay full thong tin 1 KHACH HANG/CO HOI da day len MISA (theo account_number
+    ZALO-{phone}): ten nguoi lien he, cong ty, MST, dia chi, needs, VA PIC (nguoi
+    dang duoc phan phu trach - MISA khong co Deal API rieng, nhung object Customer
+    co san field "owner_name" - chinh la nguoi duoc gan phu trach khach hang/co hoi
+    do). Dung field nay lam PIC TU DONG, KHONG doan/nhap tay - dung nguoi MISA da
+    phan that."""
     import httpx
 
     digits = re.sub(r"[^0-9]", "", phone or "")
@@ -550,6 +563,7 @@ def fetch_misa_lead(phone):
                 "address": cust.get("billing_address") or "",
                 "email": cust.get("office_email") or "",
                 "needs": (needs_m.group(1).strip() if needs_m else desc),
+                "pic": _clean_pic_name(cust.get("owner_name") or ""),
             }
     raise RuntimeError(f"Không tìm thấy lead MISA cho SĐT {digits}")
 
@@ -775,8 +789,8 @@ if __name__ == "__main__":
     ap.add_argument("--customer-address", default="")
     ap.add_argument("--customer-tax-code", default="")
     ap.add_argument("--customer-email", default="")
-    ap.add_argument("--from-misa-phone", default="", help="Lấy toàn bộ thông tin khách hàng (tên, công ty, MST, địa chỉ, needs) trực tiếp từ MISA CRM theo SĐT, tự phát hiện category từ needs")
-    ap.add_argument("--pic", default="", help="Tên nhân viên được phân phụ trách CƠ HỘI này (MISA không có API tra được, phải nhập tay) — hiện trên bản báo giá + dùng để chọn người nhận email khi bật --prod")
+    ap.add_argument("--from-misa-phone", default="", help="Lấy toàn bộ thông tin khách hàng + PIC (tên, công ty, MST, địa chỉ, needs, owner_name=người phụ trách) trực tiếp từ MISA CRM theo SĐT, tự phát hiện category từ needs")
+    ap.add_argument("--pic", default="", help="Ghi đè tên PIC thủ công (CHỈ dùng khi không có --from-misa-phone, vd test số liệu giả) — bình thường PIC phải lấy tự động từ owner_name của MISA, không nhập tay")
     ap.add_argument("--send", action="store_true")
     ap.add_argument("--prod", action="store_true", help="Gửi thật (sales@/hong.nt@) - CHỈ dùng khi Hiếu đã xác nhận OK bản test")
     args = ap.parse_args()
@@ -787,20 +801,25 @@ if __name__ == "__main__":
         args.customer_address, args.customer_tax_code, args.customer_email,
     )
     needs_text = ""
+    pic = args.pic  # chi dung khi KHONG co --from-misa-phone (test thu cong)
 
     if args.from_misa_phone:
         lead = fetch_misa_lead(args.from_misa_phone)
         name, company, phone = lead["name"], lead["company"], lead["phone"]
         address, tax_code, email = lead["address"], lead["tax_code"], lead["email"]
         needs_text = lead["needs"]
+        # PIC LUON lay tu MISA (owner_name that - nguoi dang duoc phan phu trach
+        # khach hang/co hoi nay), KHONG dung --pic go tay de ghi de - dam bao
+        # dung chinh xac nguoi MISA da phan, khong phai chon random/nhap sai.
+        pic = lead["pic"]
         category = category or detect_category(needs_text)
-        print(f"[auto_quote] Lead MISA: {name} | {company} | {phone} | needs={needs_text[:80]} | category={category}")
+        print(f"[auto_quote] Lead MISA: {name} | {company} | {phone} | PIC={pic or '(chưa có owner_name)'} | needs={needs_text[:80]} | category={category}")
 
     if not category:
         ap.error("--category bắt buộc (hoặc suy ra được từ --from-misa-phone)")
 
-    if not args.pic:
-        print("[auto_quote] Cảnh báo: chưa truyền --pic (chưa rõ cơ hội này phân cho ai), dùng tên phòng ban chung.", file=sys.stderr)
+    if not pic:
+        print("[auto_quote] Cảnh báo: không xác định được PIC (thiếu owner_name trên MISA hoặc không truyền --pic khi test thủ công), dùng tên phòng ban chung.", file=sys.stderr)
 
     generate_and_send(
         category,
@@ -811,7 +830,7 @@ if __name__ == "__main__":
         customer_tax_code=tax_code,
         customer_email=email,
         needs_text=needs_text,
-        pic=args.pic,
+        pic=pic,
         send=args.send,
         test_mode=not args.prod,
     )
