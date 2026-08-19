@@ -91,9 +91,8 @@ def load_catalog_items(category: str):
         buy = p.get("buyPrice") or 0
         if buy <= 0:
             continue  # khong co gia NCC -> khong the tinh gia ban, bo qua
-        if (p.get("stock") or 0) <= 0:
-            continue  # bao gia tu dong: chi liet ke hang dang con trong kho (tranh bao gia
-            # qua dai gom ca SKU het hang/cu - xem ghi chu trong auto_quote CLAUDE.md)
+        # KHONG loc theo ton kho (yeu cau Hieu 2026-08-19): het hang thi di lay them,
+        # bao gia van liet ke toan bo mau ICD dang ban trong nhom.
         sell = round(buy * MARKUP / 1000) * 1000  # lam tron nghin cho de nhin
         items.append(
             {
