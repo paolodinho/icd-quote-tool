@@ -641,7 +641,7 @@ def fetch_misa_lead(phone):
 # ---------------------------------------------------------------------------
 
 
-def send_email(subject, body, attachments, test_mode=True):
+def send_email(subject, body_text, attachments, test_mode=True, body_html=None):
     host = _load_env_value("SMTP_HOST")
     port = int(_load_env_value("SMTP_PORT") or 587)
     user = _load_env_value("SMTP_USER")
@@ -650,7 +650,7 @@ def send_email(subject, body, attachments, test_mode=True):
         print("[auto_quote] Thiếu cấu hình SMTP, không gửi được email.", file=sys.stderr)
         return False
 
-    msg = MIMEMultipart()
+    msg = MIMEMultipart("mixed")
     msg["Subject"] = subject
     msg["From"] = user
     if test_mode:
@@ -660,7 +660,14 @@ def send_email(subject, body, attachments, test_mode=True):
         msg["To"] = ", ".join(PROD_RECIPIENTS["to"])
         msg["Bcc"] = ", ".join(PROD_RECIPIENTS["bcc"])
         to_addrs = PROD_RECIPIENTS["to"] + PROD_RECIPIENTS["bcc"]
-    msg.attach(MIMEText(body, "plain", "utf-8"))
+
+    if body_html:
+        alt = MIMEMultipart("alternative")
+        alt.attach(MIMEText(body_text, "plain", "utf-8"))
+        alt.attach(MIMEText(body_html, "html", "utf-8"))
+        msg.attach(alt)
+    else:
+        msg.attach(MIMEText(body_text, "plain", "utf-8"))
     for fname, fbytes in attachments:
         part = MIMEApplication(fbytes, Name=fname)
         part["Content-Disposition"] = f'attachment; filename="{fname}"'
@@ -686,46 +693,112 @@ def send_email(subject, body, attachments, test_mode=True):
 # ---------------------------------------------------------------------------
 
 
-def build_internal_briefing(quote, category, needs_text, filter_note, n_total_in_group):
+def _vnd(n):
+    return f"{n:,.0f}đ".replace(",", ".")
+
+
+def build_internal_briefing_text(quote, category, needs_text, filter_note, n_total_in_group):
+    """Ban plain-text du phong (email client khong render HTML)."""
     c = quote["customer"]
     lines = [
         "BÁO GIÁ TỰ ĐỘNG - BẢN TÓM TẮT NỘI BỘ (không phải email gửi khách)",
         "",
-        f"Số báo giá: {quote['meta']['quotNo']}  |  Ngày: {quote['meta']['date']}  |  Hiệu lực đến: {quote['meta']['validity']}",
+        f"Số báo giá: {quote['meta']['quotNo']} | Ngày: {quote['meta']['date']} | Hiệu lực đến: {quote['meta']['validity']}",
         f"Nhóm sản phẩm: {CATEGORY_LABEL[category]}",
         "",
-        "--- THÔNG TIN KHÁCH HÀNG ---",
-        f"Người liên hệ: {c['attn'] or '(chưa có)'}",
-        f"Công ty: {c['messrs'] or '(chưa có)'}",
-        f"SĐT: {c['tel'] or '(chưa có)'}",
-        f"Địa chỉ: {c['add'] or '(chưa có - MISA/tra cứu MST đều không có)'}",
-        f"Email: {c['email'] or '(chưa có)'}",
-        f"Nhu cầu khách nêu (nguyên văn): {needs_text or '(không có, chạy thủ công)'}",
+        "KHÁCH HÀNG",
+        f"- Người liên hệ: {c['attn'] or '(chưa có)'}  |  Công ty: {c['messrs'] or '(chưa có)'}  |  SĐT: {c['tel'] or '(chưa có)'}",
+        f"- Địa chỉ: {c['add'] or '(chưa có)'}  |  Email: {c['email'] or '(chưa có)'}",
+        f"- Nhu cầu: {needs_text or '(chạy thủ công, không có needs)'}",
         "",
-        f"--- SẢN PHẨM TRONG BÁO GIÁ ({len(quote['items'])}/{n_total_in_group} SP của nhóm — {filter_note}) ---",
+        f"SẢN PHẨM ({len(quote['items'])}/{n_total_in_group} SP nhóm — {filter_note})",
     ]
     total_buy, total_sell = 0, 0
     for i, it in enumerate(quote["items"], 1):
-        buy = it.get("buyPrice") or 0
-        sell = it.get("price") or 0
-        qty = it.get("qty") or 0
+        buy, sell, qty = it.get("buyPrice") or 0, it.get("price") or 0, it.get("qty") or 0
         total_buy += buy * qty
         total_sell += sell * qty
-        supplier = it.get("supplier") or "(chưa ghi NCC)"
-        lines.append(
-            f"{i}. {it['desc']} | ĐVT: {it['unit']} | SL: {qty} | "
-            f"Giá NCC: {buy:,.0f}đ | Giá bán: {sell:,.0f}đ | NCC: {supplier}".replace(",", ".")
-        )
+        lines.append(f"{i}. {it['desc']} - SL {qty} - NCC báo {_vnd(buy)} - Bán {_vnd(sell)} - NCC: {it.get('supplier') or '(chưa ghi)'}")
     lines += [
         "",
-        f"Nguyên tắc tính giá: Giá bán = Giá NCC báo × {MARKUP} (làm tròn nghìn).",
-        f"Tổng giá NCC (giá vốn): {total_buy:,.0f}đ  |  Tổng giá bán: {total_sell:,.0f}đ".replace(",", "."),
+        f"Nguyên tắc tính giá: Giá bán = Giá NCC × {MARKUP} (làm tròn nghìn).",
+        f"Tổng giá vốn: {_vnd(total_buy)} | Tổng giá bán: {_vnd(total_sell)}",
         "",
-        "File đính kèm: 4 mẫu báo giá (mau-1 đến mau-4) - dùng để gửi khách sau khi Sales xác nhận đơn.",
-        "",
-        "--- Đây là báo giá TỰ ĐỘNG, giai đoạn TEST - chỉ gửi nội bộ, chưa gửi khách. ---",
+        "File đính kèm: 4 mẫu báo giá (mau-1 đến mau-4), dùng gửi khách sau khi Sales xác nhận.",
+        "--- Báo giá TỰ ĐỘNG, giai đoạn TEST - chỉ gửi nội bộ. ---",
     ]
     return "\n".join(lines)
+
+
+def build_internal_briefing_html(quote, category, needs_text, filter_note, n_total_in_group):
+    c = quote["customer"]
+    total_buy = sum((it.get("buyPrice") or 0) * (it.get("qty") or 0) for it in quote["items"])
+    total_sell = sum((it.get("price") or 0) * (it.get("qty") or 0) for it in quote["items"])
+
+    rows = "".join(
+        f'<tr>'
+        f'<td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:center">{i}</td>'
+        f'<td style="padding:6px 10px;border-bottom:1px solid #eee">{_esc(it["desc"])}</td>'
+        f'<td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:center">{_esc(it["unit"])}</td>'
+        f'<td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:center">{it.get("qty") or 0}</td>'
+        f'<td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right">{_vnd(it.get("buyPrice") or 0)}</td>'
+        f'<td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right;font-weight:600;color:#B5501A">{_vnd(it.get("price") or 0)}</td>'
+        f'<td style="padding:6px 10px;border-bottom:1px solid #eee">{_esc(it.get("supplier") or "(chưa ghi)")}</td>'
+        f"</tr>"
+        for i, it in enumerate(quote["items"], 1)
+    )
+
+    return f"""
+<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222;max-width:720px">
+  <h2 style="font-size:17px;margin:0 0 4px">Báo giá tự động — bản tóm tắt nội bộ</h2>
+  <p style="margin:0 0 16px;color:#888;font-size:12px">Không phải email gửi khách — chỉ dùng để Thăng/Hồng đối chiếu trước khi gửi khách.</p>
+
+  <table style="border-collapse:collapse;margin-bottom:16px">
+    <tr><td style="padding:2px 8px 2px 0;color:#666">Số báo giá</td><td style="font-weight:600">{_esc(quote['meta']['quotNo'])}</td></tr>
+    <tr><td style="padding:2px 8px 2px 0;color:#666">Ngày / Hiệu lực đến</td><td>{_esc(quote['meta']['date'])} &nbsp;→&nbsp; {_esc(quote['meta']['validity'])}</td></tr>
+    <tr><td style="padding:2px 8px 2px 0;color:#666">Nhóm sản phẩm</td><td>{_esc(CATEGORY_LABEL[category])}</td></tr>
+  </table>
+
+  <h3 style="font-size:14px;background:#F5F5F5;padding:6px 10px;margin:0 0 8px">Khách hàng</h3>
+  <table style="border-collapse:collapse;margin-bottom:16px;width:100%">
+    <tr><td style="padding:2px 8px 2px 0;color:#666;width:110px">Người liên hệ</td><td>{_esc(c['attn'] or '(chưa có)')}</td></tr>
+    <tr><td style="padding:2px 8px 2px 0;color:#666">Công ty</td><td>{_esc(c['messrs'] or '(chưa có)')}</td></tr>
+    <tr><td style="padding:2px 8px 2px 0;color:#666">SĐT</td><td>{_esc(c['tel'] or '(chưa có)')}</td></tr>
+    <tr><td style="padding:2px 8px 2px 0;color:#666">Địa chỉ</td><td>{_esc(c['add'] or '(chưa có)')}</td></tr>
+    <tr><td style="padding:2px 8px 2px 0;color:#666">Email</td><td>{_esc(c['email'] or '(chưa có)')}</td></tr>
+    <tr><td style="padding:2px 8px 2px 0;color:#666;vertical-align:top">Nhu cầu khách nêu</td><td>{_esc(needs_text or '(chạy thủ công, không có needs)')}</td></tr>
+  </table>
+
+  <h3 style="font-size:14px;background:#F5F5F5;padding:6px 10px;margin:0 0 8px">
+    Sản phẩm trong báo giá ({len(quote['items'])}/{n_total_in_group} SP nhóm — {_esc(filter_note)})
+  </h3>
+  <table style="border-collapse:collapse;width:100%;font-size:13px;margin-bottom:8px">
+    <thead>
+      <tr style="background:#27343A;color:#fff">
+        <th style="padding:6px 10px;text-align:center">STT</th>
+        <th style="padding:6px 10px;text-align:left">Sản phẩm</th>
+        <th style="padding:6px 10px;text-align:center">ĐVT</th>
+        <th style="padding:6px 10px;text-align:center">SL</th>
+        <th style="padding:6px 10px;text-align:right">Giá NCC</th>
+        <th style="padding:6px 10px;text-align:right">Giá bán</th>
+        <th style="padding:6px 10px;text-align:left">Nhà cung cấp</th>
+      </tr>
+    </thead>
+    <tbody>{rows}</tbody>
+  </table>
+  <p style="margin:0 0 16px">
+    <b>Nguyên tắc tính giá:</b> Giá bán = Giá NCC báo × {MARKUP} (làm tròn nghìn).<br>
+    <b>Tổng giá vốn:</b> {_vnd(total_buy)} &nbsp;|&nbsp; <b>Tổng giá bán:</b> {_vnd(total_sell)}
+  </p>
+
+  <p style="margin:0 0 16px;color:#444">
+    File đính kèm: 4 mẫu báo giá (mau-1 đến mau-4) — dùng gửi khách sau khi Sales xác nhận đơn.
+  </p>
+  <p style="margin:16px 0 0;padding-top:8px;border-top:1px solid #eee;color:#999;font-size:12px">
+    Đây là báo giá TỰ ĐỘNG, giai đoạn TEST — chỉ gửi nội bộ, chưa gửi khách.
+  </p>
+</div>
+""".strip()
 
 
 # ---------------------------------------------------------------------------
@@ -755,15 +828,16 @@ def generate_and_send(category, customer_name="", customer_company="", customer_
         attachments.append((fname, xbytes))
         print(f"[auto_quote] Đã tạo {out_path} ({len(items)} dòng SP)")
 
-    cover = build_internal_briefing(quote, category, needs_text, filter_note, n_total_in_group)
+    cover_text = build_internal_briefing_text(quote, category, needs_text, filter_note, n_total_in_group)
+    cover_html = build_internal_briefing_html(quote, category, needs_text, filter_note, n_total_in_group)
     who = quote["customer"]["messrs"] or quote["customer"]["attn"] or "khách"
     subject = f"[TEST TỰ ĐỘNG - NỘI BỘ] Báo giá {CATEGORY_LABEL[category]} cho {who} - {quote['meta']['quotNo']}" if test_mode else \
         f"[NỘI BỘ] Báo giá {CATEGORY_LABEL[category]} cho {who} - {quote['meta']['quotNo']}"
 
     if send:
-        ok = send_email(subject, cover, attachments, test_mode=test_mode)
+        ok = send_email(subject, cover_text, attachments, test_mode=test_mode, body_html=cover_html)
         print(f"[auto_quote] Gửi email {'THÀNH CÔNG' if ok else 'THẤT BẠI'} (test_mode={test_mode})")
-    return attachments, cover
+    return attachments, cover_text
 
 
 if __name__ == "__main__":
