@@ -10,11 +10,17 @@ la PIC hien thi tren ban bao gia + la nguoi nhan email noi bo (khi len productio
 
 QUAN TRONG - han che da xac nhan qua swagger MISA (crmconnect.misa.vn/swagger/v2/
 swagger.json, kiem tra lai 2026-08-19): MISA CRM Open API v2 KHONG co endpoint
-doc "Co hoi/Deal" (chi co Account/Contacts/Customers/Products/SaleOrders/Stocks).
-Vi vay PIC KHONG the tu tra ra tu API - phai truyen vao qua --pic khi goi script
-(nguoi chay bao gia tu biet co hoi nay MISA da phan cho ai). Thong tin khach hang
-(ten/cong ty/MST/dia chi/needs) van tra duoc qua MISA Customers (--from-misa-phone,
-khong doi logic) - chi rieng PIC la field moi, nhap tay.
+doc rieng object "Co hoi" (tab Ban hang > Co hoi tren UI MISA, khac hoan toan
+field owner cua Khach hang) - chi co Account/Contacts/Customers/Products/
+SaleOrders/Stocks. Vi vay PIC KHONG the doc truc tiep tu object Co hoi.
+
+Giai phap da thong nhat voi Hieu (2026-08-19): PIC = field "Chu so huu" (owner_name)
+cua ban ghi Khach hang tren MISA. QUY TRINH BAT BUOC de dieu nay dung: khi 1 Sale
+nhan xu ly/duoc phan 1 co hoi, ADMIN SALES phai vao MISA doi "Chu so huu" cua ban
+ghi Khach hang do sang dung ten Sale phu trach (mac dinh moi Khach hang tu Zalo bot
+push len se co owner la nguoi giu MISA_CLIENT_SECRET/token API - KHONG dung de suy
+ra PIC neu chua duoc admin sales chuyen quyen). auto_quote.py chi doc dung field co
+san nay (fetch_misa_lead() -> owner_name), KHONG tu doan/gan PIC theo cach nao khac.
 
 GIAI DOAN TEST (theo yeu cau Hieu 2026-08-19): CHI gui cho Hieu
 (hieudx3107@gmail.com). KHONG gui sales@icdvietnam.com.vn / hong.nt@icdvietnam.com.vn
@@ -532,11 +538,14 @@ def _clean_pic_name(owner_name: str) -> str:
 
 def fetch_misa_lead(phone):
     """Lay full thong tin 1 KHACH HANG/CO HOI da day len MISA (theo account_number
-    ZALO-{phone}): ten nguoi lien he, cong ty, MST, dia chi, needs, VA PIC (nguoi
-    dang duoc phan phu trach - MISA khong co Deal API rieng, nhung object Customer
-    co san field "owner_name" - chinh la nguoi duoc gan phu trach khach hang/co hoi
-    do). Dung field nay lam PIC TU DONG, KHONG doan/nhap tay - dung nguoi MISA da
-    phan that."""
+    ZALO-{phone}): ten nguoi lien he, cong ty, MST, dia chi, needs, VA PIC.
+
+    PIC = field owner_name ("Chu so huu") cua ban ghi Khach hang - theo quy trinh
+    da thong nhat voi Hieu (2026-08-19): khi 1 co hoi duoc phan cho Sale nao, ADMIN
+    SALES se vao MISA doi "Chu so huu" cua ban ghi Khach hang sang dung ten Sale do.
+    KHONG phai "nguoi push API len MISA" (mac dinh moi lead Zalo bot day len se co
+    owner = nguoi giu credential MISA_CLIENT_SECRET, cho toi khi admin sales chu
+    dong chuyen quyen so huu)."""
     import httpx
 
     digits = re.sub(r"[^0-9]", "", phone or "")
