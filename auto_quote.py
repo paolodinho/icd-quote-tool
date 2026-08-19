@@ -120,6 +120,7 @@ TEMPLATES = {
         "cols": {"stt": "A", "desc": "B", "unit": "F", "qty": "G", "price": "I", "total": "J", "note": "L"},
         "rowMerges": [("B", "E"), ("G", "H")],
         "totals": {"subtotal": ("J", 22), "vat": ("J", 23), "grand": ("J", 24), "vatLabel": ("A", 23)},
+        "imgCol": "K",
     },
     "mau-2": {
         "file": "templates/mau-2.xlsx",
@@ -129,6 +130,7 @@ TEMPLATES = {
         "cols": {"stt": "A", "desc": "B", "unit": "F", "qty": "G", "price": "I", "total": "J", "note": "L"},
         "rowMerges": [("B", "E"), ("G", "H")],
         "totals": {"subtotal": ("J", 22), "vat": ("J", 23), "grand": ("J", 24), "vatLabel": ("A", 23)},
+        "imgCol": "K",
     },
     "mau-3": {
         "file": "templates/mau-3.xlsx",
@@ -147,6 +149,7 @@ TEMPLATES = {
         "cols": {"stt": "A", "desc": "B", "unit": "E", "qty": "F", "price": "G", "total": "H", "note": "J"},
         "rowMerges": [("B", "D")],
         "totals": {"subtotal": ("H", 20), "vat": ("H", 21), "grand": ("H", 22), "vatLabel": ("A", 21)},
+        "imgCol": "I",
     },
 }
 
@@ -275,6 +278,10 @@ def generate_xlsx(tpl_key, quote):
         xml = set_cell_number(xml, cfg["cols"]["price"] + str(r), price)
         xml = set_cell_number(xml, cfg["cols"]["total"] + str(r), total)
         xml = set_cell_text(xml, cfg["cols"]["note"] + str(r), it.get("note") or "")
+        if cfg.get("imgCol"):
+            # Xoá placeholder merge-field MISA ("##Báo giá...Avatar##") có sẵn trong template -
+            # ta không nhúng ảnh sản phẩm cho báo giá tự động, để trống cột này.
+            xml = set_cell_text(xml, cfg["imgCol"] + str(r), "")
 
     shift = n - 1
     vat_pct = float(quote.get("vatPercent") or 0)
@@ -293,13 +300,53 @@ def generate_xlsx(tpl_key, quote):
     for k, ref in cfg["meta"].items():
         xml = set_cell_text(xml, ref, quote["meta"].get(k) or "")
 
+    # Con dau/chu ky (va bat ky anh nao khac) trong template la drawing anchor NEO THEO SO
+    # DONG TUYET DOI trong file drawing*.xml rieng - KHONG tu dich xuong khi ta chen them
+    # dong san pham vao sheet.xml. Neu khong dich cung, con dau se "ket" giua bang khi bao
+    # gia co nhieu hon vai dong (sự cố phát hiện 2026-08-19: 174 dòng thùng nhựa).
+    drawing_updates = _shift_drawing_anchors(zin, sheet_path, cfg["productRow"], shift)
+
     out_buf = io.BytesIO()
     with zipfile.ZipFile(out_buf, "w", zipfile.ZIP_DEFLATED) as zout:
         for item in zin.infolist():
-            data = xml.encode("utf-8") if item.filename == sheet_path else zin.read(item.filename)
+            if item.filename == sheet_path:
+                data = xml.encode("utf-8")
+            elif item.filename in drawing_updates:
+                data = drawing_updates[item.filename].encode("utf-8")
+            else:
+                data = zin.read(item.filename)
             zout.writestr(item, data)
     zin.close()
     return out_buf.getvalue()
+
+
+def _shift_drawing_anchors(zin, sheet_path, base_row, shift):
+    """Tra ve {drawing_path: new_xml} cho moi drawing gan voi sheet_path, voi moi
+    <xdr:row> > base_row (0-based, tuc la >= base_row vi Excel row N = xdr:row N-1)
+    duoc dich xuong `shift` dong - giu con dau/chu ky/logo dung vi tri tuong doi
+    sau khi bang san pham dai ra."""
+    if shift <= 0:
+        return {}
+    rels_path = re.sub(r"worksheets/(sheet\d+)\.xml$", r"worksheets/_rels/\1.xml.rels", sheet_path)
+    if rels_path not in zin.namelist():
+        return {}
+    rels_xml = zin.read(rels_path).decode("utf-8")
+    dr_rel = re.search(r'<Relationship[^>]*Type="[^"]*/drawing"[^>]*/>', rels_xml)
+    if not dr_rel:
+        return {}
+    tgt = re.search(r'Target="([^"]+)"', dr_rel.group(0)).group(1)
+    drawing_path = "xl/" + re.sub(r"^(\.\./)+", "", tgt)
+    if drawing_path not in zin.namelist():
+        return {}
+    dxml = zin.read(drawing_path).decode("utf-8")
+    # xdr:row la 0-based; Excel row R > productRow moi bi insert_rows() dich (dong productRow
+    # la dong mau, giu nguyen). R > productRow (1-based) <=> xdr:row = R-1 >= productRow.
+    def _shift(m):
+        r = int(m.group(1))
+        return f"<xdr:row>{r + shift}</xdr:row>" if r >= base_row else m.group(0)
+
+    new_dxml = re.sub(r"<xdr:row>(\d+)</xdr:row>", _shift, dxml)
+    return {drawing_path: new_dxml} if new_dxml != dxml else {}
 
 
 # ---------------------------------------------------------------------------
