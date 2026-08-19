@@ -9,3 +9,4 @@ data-enc.json
 # plaintext catalog - không đưa lên public, chỉ dùng data-enc.json
 data/
 backups/
+auto-quote-out/
