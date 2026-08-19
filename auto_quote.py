@@ -3,16 +3,26 @@
 """
 auto_quote.py — Bao gia tu dong cho ICD Viet Nam (thung nhua, pallet nhua).
 
-Trigger du kien (chua noi vao live): khi lead Zalo OA (chatbot/claude_agent.py,
-tool save_lead) co du thong tin (ten + SDT/cong ty) VA nhu cau nhac toi
-thung nhua/pallet nhua -> goi generate_and_send() de tu dong xuat 4 mau bao gia
-(gia ban = gia NCC bao x 1.324, liet ke TOAN BO san pham dang con trong kho gia
-cua nhom do) va gui qua email.
+Nguon trigger (doi 2026-08-19 theo yeu cau Hieu): KHONG con dua tren 1 lead Zalo
+OA "tho" nua, ma dua tren 1 CO HOI (Deal) - tuc la 1 khach hang da duoc phan cho
+1 nhan vien Sale cu the phu trach. Nguoi duoc phan cong (PIC) cua co hoi do se
+la PIC hien thi tren ban bao gia + la nguoi nhan email noi bo (khi len production).
+
+QUAN TRONG - han che da xac nhan qua swagger MISA (crmconnect.misa.vn/swagger/v2/
+swagger.json, kiem tra lai 2026-08-19): MISA CRM Open API v2 KHONG co endpoint
+doc "Co hoi/Deal" (chi co Account/Contacts/Customers/Products/SaleOrders/Stocks).
+Vi vay PIC KHONG the tu tra ra tu API - phai truyen vao qua --pic khi goi script
+(nguoi chay bao gia tu biet co hoi nay MISA da phan cho ai). Thong tin khach hang
+(ten/cong ty/MST/dia chi/needs) van tra duoc qua MISA Customers (--from-misa-phone,
+khong doi logic) - chi rieng PIC la field moi, nhap tay.
 
 GIAI DOAN TEST (theo yeu cau Hieu 2026-08-19): CHI gui cho Hieu
 (hieudx3107@gmail.com). KHONG gui sales@icdvietnam.com.vn / hong.nt@icdvietnam.com.vn
 cho toi khi Hieu xac nhan OK, roi moi mo rong sang Hong + anh Thang, cuoi cung
-moi bat 2 dia chi that trong workflow ve sau. Dat qua bien TEST_MODE.
+moi bat 2 dia chi that trong workflow ve sau. Dat qua bien TEST_MODE. Trong prod
+mode, "to" se uu tien dia chi email cua chinh PIC (tra theo PIC_EMAIL_MAP) thay vi
+luon co dinh sales@/hong.nt@ - PIC khong co trong map (vd chua biet email that)
+se fallback ve sales@icdvietnam.com.vn.
 
 Port lai logic dien o xlsx-fill.js (JS, dung JSZip/browser) sang Python thuan
 (zipfile + re) de chay duoc tren VPS/chatbot server (Python) khong can Node.
@@ -22,7 +32,7 @@ no-claude-in-automation.md) - phan sinh loi dan email dung OpenRouter.
 Chay thu (test):
     cd "08-tools/quote-generator"
     python3 auto_quote.py --category thung-nhua --customer-name "Anh Test" \
-        --customer-company "Cong ty Test" --send
+        --customer-company "Cong ty Test" --pic "Le Van Thang" --send
 """
 import argparse
 import json
@@ -60,6 +70,25 @@ PROD_RECIPIENTS = {
     "to": ["sales@icdvietnam.com.vn", "hong.nt@icdvietnam.com.vn"],
     "bcc": ["hieudx3107@gmail.com"],
 }
+
+# Email that theo tung PIC (nguoi duoc phan co hoi) - chi biet duoc vai nguoi qua
+# cac file/.env da co trong du an, KHONG bia. PIC khong khop key nao o day (vd
+# chua co email rieng, hoac go sai chinh ta ten) -> fallback ve sales@icdvietnam.com.vn
+# (khong duoc de rot mail - luon phai co it nhat 1 nguoi nhan that trong prod mode).
+PIC_EMAIL_MAP = {
+    "hồng": "hong.nt@icdvietnam.com.vn",
+    "hong": "hong.nt@icdvietnam.com.vn",
+    "trang": "trang.dtt@icdvietnam.com.vn",
+}
+PIC_DEFAULT_EMAIL = "sales@icdvietnam.com.vn"
+
+
+def _pic_email(pic_name: str) -> str:
+    key = (pic_name or "").strip().lower()
+    for k, email in PIC_EMAIL_MAP.items():
+        if k in key:
+            return email
+    return PIC_DEFAULT_EMAIL
 
 # ---------------------------------------------------------------------------
 # 1) Phat hien category tu text nhu cau cua lead (dung khi noi vao live trigger)
@@ -446,7 +475,7 @@ def _research_address(tax_code):
         return ""
 
 
-def build_quote(customer_name, customer_company, customer_phone, items, customer_address="", customer_tax_code="", customer_email=""):
+def build_quote(customer_name, customer_company, customer_phone, items, customer_address="", customer_tax_code="", customer_email="", pic=""):
     d = datetime.now()
     validity = d + timedelta(days=15)
     address = customer_address or _research_address(customer_tax_code)
@@ -465,7 +494,9 @@ def build_quote(customer_name, customer_company, customer_phone, items, customer
             "date": d.strftime("%d/%m/%Y"),
             "incoterms": "Giao tại kho ICD",
             "leadtime": "1-3 ngày",
-            "pic": "Phòng Kinh doanh ICD Việt Nam",
+            # PIC = nguoi duoc phan phu trach CO HOI nay (nhap tay qua --pic, MISA
+            # khong co API tra duoc) - fallback ve ten phong ban chung neu chua ro.
+            "pic": pic or "Phòng Kinh doanh ICD Việt Nam",
             "destination": "",
             "payment": "Chuyển khoản / Tiền mặt",
             "validity": validity.strftime("%d/%m/%Y"),
@@ -473,119 +504,6 @@ def build_quote(customer_name, customer_company, customer_phone, items, customer
         "items": items,
         "vatPercent": 8,
     }
-
-
-# ---------------------------------------------------------------------------
-# 5) OpenRouter — sinh loi dan email (KHONG dung Claude API, theo rule automation)
-# ---------------------------------------------------------------------------
-
-
-def openrouter_cover_message(customer_name, category_label):
-    api_key = _load_env_value("OPENROUTER_API_KEY")
-    fallback = (
-        f"Kính gửi {customer_name or 'Quý khách'},\n\n"
-        f"ICD Việt Nam xin gửi bảng báo giá {category_label} kèm theo email này "
-        f"(đính kèm 4 mẫu để Quý khách tiện lựa chọn form phù hợp).\n\n"
-        "Báo giá có hiệu lực 15 ngày kể từ ngày phát hành. Mọi thắc mắc xin liên hệ "
-        "hotline 0983 797 186 hoặc Zalo để được tư vấn thêm.\n\n"
-        "Trân trọng,\nICD Việt Nam"
-    )
-    if not api_key:
-        return fallback
-
-    import urllib.request
-
-    prompt = (
-        "Bạn là nhân viên kinh doanh B2B của ICD Việt Nam, viết email báo giá gửi khách hàng "
-        "doanh nghiệp — văn phong trang trọng, chỉn chu, đúng chuẩn thư từ thương mại tiếng Việt "
-        "(không phải văn nói, không viral, không sáo rỗng).\n\n"
-        f"Viết phần NỘI DUNG email (60-90 từ) kèm bảng báo giá {category_label} tự động gửi "
-        f"khách hàng '{customer_name or 'Quý khách'}'. Nội dung: xác nhận đã nhận yêu cầu, gửi kèm "
-        "báo giá tham khảo (đính kèm), báo giá có hiệu lực 15 ngày, mời liên hệ hotline 0983 797 186 "
-        "để được tư vấn/xác nhận đơn hàng cụ thể. Không bịa thêm số liệu/cam kết nào khác.\n\n"
-        "QUY TẮC XUẤT KẾT QUẢ - BẮT BUỘC: chỉ trả về DUY NHẤT nội dung email hoàn chỉnh bằng "
-        "tiếng Việt (bắt đầu bằng 'Kính gửi'), không kèm bất kỳ giải thích, suy luận, ghi chú, "
-        "tiêu đề, markdown, hay câu tiếng Anh nào khác."
-    )
-
-    # Rẻ trước, free fallback sau (lấy động qua /models — không hardcode id free vì
-    # catalog free hay đổi) — theo rule no-claude-in-automation.md.
-    models = ["deepseek/deepseek-chat"]
-    try:
-        req = urllib.request.Request(
-            "https://openrouter.ai/api/v1/models",
-            headers={"Authorization": f"Bearer {api_key}"},
-        )
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            all_ids = [m["id"] for m in json.loads(resp.read().decode("utf-8"))["data"]]
-        # Chi lay free model TU NHOM DANG TIN (gpt-oss, gemma, glm, qwen ban lon) - da thu
-        # nghiem thay nhieu model free nho/preview bia sai ten cong ty, lo the <think>, chen
-        # placeholder [Chu ky] khi viet tieng Viet formal -> qua rui ro cho email gui khach.
-        trusted_prefixes = ("openai/gpt-oss", "google/gemma", "z-ai/glm", "qwen/")
-        skip = ("nano", "lightning", "mini", "preview", "-2b", "-1b", "small", "note")
-        models += [
-            i for i in all_ids
-            if i.endswith(":free") and i.startswith(trusted_prefixes) and not any(s in i.lower() for s in skip)
-        ][:4]
-    except Exception:
-        pass
-
-    for model in models:
-        try:
-            body = json.dumps(
-                {"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": 400}
-            ).encode("utf-8")
-            req = urllib.request.Request(
-                "https://openrouter.ai/api/v1/chat/completions",
-                data=body,
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            )
-            with urllib.request.urlopen(req, timeout=20) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-            text = (data["choices"][0]["message"]["content"] or "").strip()
-            text = _clean_llm_email(text)
-            if _is_valid_email_text(text):
-                return text
-            print(f"[auto_quote] OpenRouter model {model} trả về output không hợp lệ (lộ reasoning/tiếng Anh/markdown), thử model kế tiếp.", file=sys.stderr)
-        except Exception as e:
-            print(f"[auto_quote] OpenRouter model {model} lỗi ({e}), thử model kế tiếp.", file=sys.stderr)
-            continue
-    print("[auto_quote] Mọi model OpenRouter đều lỗi/không hợp lệ, dùng email mẫu mặc định.", file=sys.stderr)
-    return fallback
-
-
-def _clean_llm_email(text):
-    """Cat bo <think>...</think>, code fence, va phan preamble truoc dong 'Kinh gui' neu co -
-    vai model free ro CoT/giai thich truoc khi vao noi dung that."""
-    text = re.sub(r"<think>[\s\S]*?</think>", "", text, flags=re.I).strip()
-    text = re.sub(r"^```[a-z]*\n?|\n?```$", "", text.strip(), flags=re.I).strip()
-    m = re.search(r"Kính gửi", text)
-    if m and m.start() > 0:
-        text = text[m.start():]
-    return text.strip()
-
-
-def _is_valid_email_text(text):
-    """Loai output rac: lo reasoning tieng Anh, markdown, placeholder chua dien, ten cong ty
-    bia sai (phai la ICD Viet Nam, khong duoc doi ten khac), hoac qua ngan/dai."""
-    if not text or not text.startswith("Kính gửi"):
-        return False
-    bad_markers = (
-        "thinking process", "here's a", "let's plan", "i'll aim", "**format:**",
-        "analyze the request", "word count", "##", "- **", "<think", "</think",
-        "[chữ ký]", "[chức", "[email]", "[tên",
-    )
-    low = text.lower()
-    if any(m in low for m in bad_markers):
-        return False
-    if "[" in text or "]" in text:
-        return False  # placeholder chua dien kieu [Chu ky]/[Ten]
-    if "icd" not in low:
-        return False  # phai nhac dung ten cong ty that, khong duoc bia ten khac
-    if text.count("Kính gửi") > 1:
-        return False  # model sinh 2 ban nhap dinh vao nhau
-    word_count = len(text.split())
-    return 20 <= word_count <= 150
 
 
 def _load_env_value(key):
@@ -641,7 +559,7 @@ def fetch_misa_lead(phone):
 # ---------------------------------------------------------------------------
 
 
-def send_email(subject, body_text, attachments, test_mode=True, body_html=None):
+def send_email(subject, body_text, attachments, test_mode=True, body_html=None, pic=""):
     host = _load_env_value("SMTP_HOST")
     port = int(_load_env_value("SMTP_PORT") or 587)
     user = _load_env_value("SMTP_USER")
@@ -657,9 +575,14 @@ def send_email(subject, body_text, attachments, test_mode=True, body_html=None):
         msg["To"] = TEST_RECIPIENT
         to_addrs = [TEST_RECIPIENT]
     else:
-        msg["To"] = ", ".join(PROD_RECIPIENTS["to"])
+        # Prod: nguoi nhan chinh la PIC cua co hoi (nguoi duoc phan phu trach),
+        # KHONG con co dinh sales@/hong.nt@ cho moi bao gia - fallback ve
+        # sales@icdvietnam.com.vn khi khong xac dinh duoc email cua PIC.
+        pic_to = _pic_email(pic)
+        to_list = sorted({pic_to, "sales@icdvietnam.com.vn"})
+        msg["To"] = ", ".join(to_list)
         msg["Bcc"] = ", ".join(PROD_RECIPIENTS["bcc"])
-        to_addrs = PROD_RECIPIENTS["to"] + PROD_RECIPIENTS["bcc"]
+        to_addrs = to_list + PROD_RECIPIENTS["bcc"]
 
     if body_html:
         alt = MIMEMultipart("alternative")
@@ -705,6 +628,7 @@ def build_internal_briefing_text(quote, category, needs_text, filter_note, n_tot
         "",
         f"Số báo giá: {quote['meta']['quotNo']} | Ngày: {quote['meta']['date']} | Hiệu lực đến: {quote['meta']['validity']}",
         f"Nhóm sản phẩm: {CATEGORY_LABEL[category]}",
+        f"PIC phụ trách cơ hội: {quote['meta']['pic']}",
         "",
         "KHÁCH HÀNG",
         f"- Người liên hệ: {c['attn'] or '(chưa có)'}  |  Công ty: {c['messrs'] or '(chưa có)'}  |  SĐT: {c['tel'] or '(chưa có)'}",
@@ -757,6 +681,7 @@ def build_internal_briefing_html(quote, category, needs_text, filter_note, n_tot
     <tr><td style="padding:2px 8px 2px 0;color:#666">Số báo giá</td><td style="font-weight:600">{_esc(quote['meta']['quotNo'])}</td></tr>
     <tr><td style="padding:2px 8px 2px 0;color:#666">Ngày / Hiệu lực đến</td><td>{_esc(quote['meta']['date'])} &nbsp;→&nbsp; {_esc(quote['meta']['validity'])}</td></tr>
     <tr><td style="padding:2px 8px 2px 0;color:#666">Nhóm sản phẩm</td><td>{_esc(CATEGORY_LABEL[category])}</td></tr>
+    <tr><td style="padding:2px 8px 2px 0;color:#666">PIC phụ trách cơ hội</td><td style="font-weight:600;color:#B5501A">{_esc(quote['meta']['pic'])}</td></tr>
   </table>
 
   <h3 style="font-size:14px;background:#F5F5F5;padding:6px 10px;margin:0 0 8px">Khách hàng</h3>
@@ -806,7 +731,7 @@ def build_internal_briefing_html(quote, category, needs_text, filter_note, n_tot
 # ---------------------------------------------------------------------------
 
 
-def generate_and_send(category, customer_name="", customer_company="", customer_phone="", customer_address="", customer_tax_code="", customer_email="", needs_text="", send=False, test_mode=True):
+def generate_and_send(category, customer_name="", customer_company="", customer_phone="", customer_address="", customer_tax_code="", customer_email="", needs_text="", pic="", send=False, test_mode=True):
     items = load_catalog_items(category)
     if not items:
         raise RuntimeError(f"Không có sản phẩm nào trong nhóm '{category}' có giá NCC hợp lệ.")
@@ -815,7 +740,7 @@ def generate_and_send(category, customer_name="", customer_company="", customer_
     if needs_text:
         items, filter_note = filter_items_by_needs(items, needs_text, category)
         print(f"[auto_quote] {filter_note} → còn {len(items)} dòng SP")
-    quote = build_quote(customer_name, customer_company, customer_phone, items, customer_address, customer_tax_code, customer_email)
+    quote = build_quote(customer_name, customer_company, customer_phone, items, customer_address, customer_tax_code, customer_email, pic)
 
     os.makedirs(OUT_DIR, exist_ok=True)
     attachments = []
@@ -831,11 +756,12 @@ def generate_and_send(category, customer_name="", customer_company="", customer_
     cover_text = build_internal_briefing_text(quote, category, needs_text, filter_note, n_total_in_group)
     cover_html = build_internal_briefing_html(quote, category, needs_text, filter_note, n_total_in_group)
     who = quote["customer"]["messrs"] or quote["customer"]["attn"] or "khách"
-    subject = f"[TEST TỰ ĐỘNG - NỘI BỘ] Báo giá {CATEGORY_LABEL[category]} cho {who} - {quote['meta']['quotNo']}" if test_mode else \
-        f"[NỘI BỘ] Báo giá {CATEGORY_LABEL[category]} cho {who} - {quote['meta']['quotNo']}"
+    pic_tag = f" (PIC: {quote['meta']['pic']})" if pic else ""
+    subject = f"[TEST TỰ ĐỘNG - NỘI BỘ] Báo giá {CATEGORY_LABEL[category]} cho {who}{pic_tag} - {quote['meta']['quotNo']}" if test_mode else \
+        f"[NỘI BỘ] Báo giá {CATEGORY_LABEL[category]} cho {who}{pic_tag} - {quote['meta']['quotNo']}"
 
     if send:
-        ok = send_email(subject, cover_text, attachments, test_mode=test_mode, body_html=cover_html)
+        ok = send_email(subject, cover_text, attachments, test_mode=test_mode, body_html=cover_html, pic=pic)
         print(f"[auto_quote] Gửi email {'THÀNH CÔNG' if ok else 'THẤT BẠI'} (test_mode={test_mode})")
     return attachments, cover_text
 
@@ -849,7 +775,8 @@ if __name__ == "__main__":
     ap.add_argument("--customer-address", default="")
     ap.add_argument("--customer-tax-code", default="")
     ap.add_argument("--customer-email", default="")
-    ap.add_argument("--from-misa-phone", default="", help="Lấy toàn bộ thông tin lead (tên, công ty, MST, địa chỉ, needs) trực tiếp từ MISA CRM theo SĐT, tự phát hiện category từ needs")
+    ap.add_argument("--from-misa-phone", default="", help="Lấy toàn bộ thông tin khách hàng (tên, công ty, MST, địa chỉ, needs) trực tiếp từ MISA CRM theo SĐT, tự phát hiện category từ needs")
+    ap.add_argument("--pic", default="", help="Tên nhân viên được phân phụ trách CƠ HỘI này (MISA không có API tra được, phải nhập tay) — hiện trên bản báo giá + dùng để chọn người nhận email khi bật --prod")
     ap.add_argument("--send", action="store_true")
     ap.add_argument("--prod", action="store_true", help="Gửi thật (sales@/hong.nt@) - CHỈ dùng khi Hiếu đã xác nhận OK bản test")
     args = ap.parse_args()
@@ -872,6 +799,9 @@ if __name__ == "__main__":
     if not category:
         ap.error("--category bắt buộc (hoặc suy ra được từ --from-misa-phone)")
 
+    if not args.pic:
+        print("[auto_quote] Cảnh báo: chưa truyền --pic (chưa rõ cơ hội này phân cho ai), dùng tên phòng ban chung.", file=sys.stderr)
+
     generate_and_send(
         category,
         customer_name=name,
@@ -881,6 +811,7 @@ if __name__ == "__main__":
         customer_tax_code=tax_code,
         customer_email=email,
         needs_text=needs_text,
+        pic=args.pic,
         send=args.send,
         test_mode=not args.prod,
     )
