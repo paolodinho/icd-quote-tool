@@ -101,6 +101,10 @@ def load_catalog_items(category: str):
                 "qty": 1,
                 "price": sell,
                 "note": "",
+                # 2 field duoi khong dua vao file xlsx gui khach (generate_xlsx khong doc
+                # toi) - chi dung de dung bang tom tat NOI BO (buyPrice/supplier).
+                "buyPrice": buy,
+                "supplier": p.get("supplier") or "",
             }
         )
     items.sort(key=lambda x: x["desc"])
@@ -676,6 +680,55 @@ def send_email(subject, body, attachments, test_mode=True):
 
 
 # ---------------------------------------------------------------------------
+# 6b) Ban tom tat NOI BO (gui Hieu/Thang/Hong - KHONG phai email cho khach) -
+# build truc tiep bang code, KHONG qua LLM, vi day la so lieu gia that (gia
+# nhap/gia ban) - khong duoc de LLM co co hoi bia/lam sai lech.
+# ---------------------------------------------------------------------------
+
+
+def build_internal_briefing(quote, category, needs_text, filter_note, n_total_in_group):
+    c = quote["customer"]
+    lines = [
+        "BÁO GIÁ TỰ ĐỘNG - BẢN TÓM TẮT NỘI BỘ (không phải email gửi khách)",
+        "",
+        f"Số báo giá: {quote['meta']['quotNo']}  |  Ngày: {quote['meta']['date']}  |  Hiệu lực đến: {quote['meta']['validity']}",
+        f"Nhóm sản phẩm: {CATEGORY_LABEL[category]}",
+        "",
+        "--- THÔNG TIN KHÁCH HÀNG ---",
+        f"Người liên hệ: {c['attn'] or '(chưa có)'}",
+        f"Công ty: {c['messrs'] or '(chưa có)'}",
+        f"SĐT: {c['tel'] or '(chưa có)'}",
+        f"Địa chỉ: {c['add'] or '(chưa có - MISA/tra cứu MST đều không có)'}",
+        f"Email: {c['email'] or '(chưa có)'}",
+        f"Nhu cầu khách nêu (nguyên văn): {needs_text or '(không có, chạy thủ công)'}",
+        "",
+        f"--- SẢN PHẨM TRONG BÁO GIÁ ({len(quote['items'])}/{n_total_in_group} SP của nhóm — {filter_note}) ---",
+    ]
+    total_buy, total_sell = 0, 0
+    for i, it in enumerate(quote["items"], 1):
+        buy = it.get("buyPrice") or 0
+        sell = it.get("price") or 0
+        qty = it.get("qty") or 0
+        total_buy += buy * qty
+        total_sell += sell * qty
+        supplier = it.get("supplier") or "(chưa ghi NCC)"
+        lines.append(
+            f"{i}. {it['desc']} | ĐVT: {it['unit']} | SL: {qty} | "
+            f"Giá NCC: {buy:,.0f}đ | Giá bán: {sell:,.0f}đ | NCC: {supplier}".replace(",", ".")
+        )
+    lines += [
+        "",
+        f"Nguyên tắc tính giá: Giá bán = Giá NCC báo × {MARKUP} (làm tròn nghìn).",
+        f"Tổng giá NCC (giá vốn): {total_buy:,.0f}đ  |  Tổng giá bán: {total_sell:,.0f}đ".replace(",", "."),
+        "",
+        "File đính kèm: 4 mẫu báo giá (mau-1 đến mau-4) - dùng để gửi khách sau khi Sales xác nhận đơn.",
+        "",
+        "--- Đây là báo giá TỰ ĐỘNG, giai đoạn TEST - chỉ gửi nội bộ, chưa gửi khách. ---",
+    ]
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
 # 7) Entry point
 # ---------------------------------------------------------------------------
 
@@ -684,6 +737,8 @@ def generate_and_send(category, customer_name="", customer_company="", customer_
     items = load_catalog_items(category)
     if not items:
         raise RuntimeError(f"Không có sản phẩm nào trong nhóm '{category}' có giá NCC hợp lệ.")
+    n_total_in_group = len(items)
+    filter_note = "toàn bộ catalog (không có needs để lọc)"
     if needs_text:
         items, filter_note = filter_items_by_needs(items, needs_text, category)
         print(f"[auto_quote] {filter_note} → còn {len(items)} dòng SP")
@@ -700,9 +755,10 @@ def generate_and_send(category, customer_name="", customer_company="", customer_
         attachments.append((fname, xbytes))
         print(f"[auto_quote] Đã tạo {out_path} ({len(items)} dòng SP)")
 
-    cover = openrouter_cover_message(customer_name, CATEGORY_LABEL[category])
-    subject = f"[TEST TỰ ĐỘNG] Báo giá {CATEGORY_LABEL[category]} - {quote['meta']['quotNo']}" if test_mode else \
-        f"Báo giá {CATEGORY_LABEL[category]} - {quote['meta']['quotNo']}"
+    cover = build_internal_briefing(quote, category, needs_text, filter_note, n_total_in_group)
+    who = quote["customer"]["messrs"] or quote["customer"]["attn"] or "khách"
+    subject = f"[TEST TỰ ĐỘNG - NỘI BỘ] Báo giá {CATEGORY_LABEL[category]} cho {who} - {quote['meta']['quotNo']}" if test_mode else \
+        f"[NỘI BỘ] Báo giá {CATEGORY_LABEL[category]} cho {who} - {quote['meta']['quotNo']}"
 
     if send:
         ok = send_email(subject, cover, attachments, test_mode=test_mode)
