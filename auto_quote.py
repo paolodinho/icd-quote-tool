@@ -359,18 +359,35 @@ def auto_quot_no():
     return f"ICD-{d.strftime('%d%m')}-AUTO"
 
 
-def build_quote(customer_name, customer_company, customer_phone, items):
+def _research_address(tax_code):
+    """Khách/MISA không có địa chỉ -> tự tra theo MST qua vietqr.io (module có sẵn
+    trong chatbot/company_lookup.py, dùng chung với chatbot lead flow)."""
+    if not tax_code:
+        return ""
+    try:
+        sys.path.insert(0, os.path.normpath(os.path.join(HERE, "..", "..", "chatbot")))
+        from company_lookup import lookup_company_by_tax
+
+        info = lookup_company_by_tax(tax_code)
+        return info.get("address", "")
+    except Exception as e:
+        print(f"[auto_quote] Research địa chỉ theo MST lỗi ({e}).", file=sys.stderr)
+        return ""
+
+
+def build_quote(customer_name, customer_company, customer_phone, items, customer_address="", customer_tax_code="", customer_email=""):
     d = datetime.now()
     validity = d + timedelta(days=15)
+    address = customer_address or _research_address(customer_tax_code)
     return {
         "customer": {
             "messrs": customer_company or customer_name or "",
-            "add": "",
+            "add": address,
             "tel": customer_phone or "",
             "fax": "",
             "attn": customer_name or "",
             "mobile": customer_phone or "",
-            "email": "",
+            "email": customer_email or "",
         },
         "meta": {
             "quotNo": auto_quot_no(),
