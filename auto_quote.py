@@ -54,7 +54,12 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PRODUCTS_FILE = os.path.join(HERE, "data-private", "products-full.json")
+# Uu tien file products-full.json SONG (dong bo lien tuc tu nhom Zalo gia NCC qua
+# /opt/icd-price-sync/, xem gia-ncc-sync.md) - ban local trong data-private/ o day co
+# the cu/lech (xem "Bai hoc" #5 trong SKILL.md icd-auto-quote). Chi fallback ve ban
+# local khi khong chay tren VPS co price-sync.
+_PRICE_SYNC_PRODUCTS = "/opt/icd-price-sync/tool/data-private/products-full.json"
+PRODUCTS_FILE = _PRICE_SYNC_PRODUCTS if os.path.exists(_PRICE_SYNC_PRODUCTS) else os.path.join(HERE, "data-private", "products-full.json")
 TEMPLATES_DIR = os.path.join(HERE, "templates")
 OUT_DIR = os.path.join(HERE, "auto-quote-out")
 
@@ -473,7 +478,10 @@ def _research_address(tax_code):
     if not tax_code:
         return ""
     try:
-        sys.path.insert(0, os.path.normpath(os.path.join(HERE, "..", "..", "chatbot")))
+        for cand in (os.path.normpath(os.path.join(HERE, "..", "..", "chatbot")), "/opt/icd-chatbot"):
+            if os.path.isdir(cand):
+                sys.path.insert(0, cand)
+                break
         from company_lookup import lookup_company_by_tax
 
         info = lookup_company_by_tax(tax_code)
