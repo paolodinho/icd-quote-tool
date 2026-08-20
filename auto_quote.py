@@ -647,7 +647,7 @@ def build_internal_briefing_text(quote, category, needs_text, filter_note, n_tot
     """Ban plain-text du phong (email client khong render HTML)."""
     c = quote["customer"]
     lines = [
-        "BÁO GIÁ TỰ ĐỘNG - BẢN TÓM TẮT NỘI BỘ (không phải email gửi khách)",
+        "BÁO GIÁ TỰ ĐỘNG - BẢN TÓM TẮT NỘI BỘ",
         "",
         f"Số báo giá: {quote['meta']['quotNo']} | Ngày: {quote['meta']['date']} | Hiệu lực đến: {quote['meta']['validity']}",
         f"Nhóm sản phẩm: {CATEGORY_LABEL[category]}",
@@ -697,8 +697,7 @@ def build_internal_briefing_html(quote, category, needs_text, filter_note, n_tot
 
     return f"""
 <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222;max-width:720px">
-  <h2 style="font-size:17px;margin:0 0 4px">Báo giá tự động — bản tóm tắt nội bộ</h2>
-  <p style="margin:0 0 16px;color:#888;font-size:12px">Không phải email gửi khách — chỉ dùng để Thăng/Hồng đối chiếu trước khi gửi khách.</p>
+  <h2 style="font-size:17px;margin:0 0 16px">Báo giá tự động — bản tóm tắt nội bộ</h2>
 
   <table style="border-collapse:collapse;margin-bottom:16px">
     <tr><td style="padding:2px 8px 2px 0;color:#666">Số báo giá</td><td style="font-weight:600">{_esc(quote['meta']['quotNo'])}</td></tr>
