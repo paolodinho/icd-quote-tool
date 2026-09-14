@@ -54,6 +54,16 @@ main{max-width:1440px;margin:18px auto;padding:0 16px;display:grid;grid-template
 #pv-full-close{margin-left:auto;background:#fff;color:var(--dark);border-radius:6px;font-size:14px;padding:9px 18px}
 /* ---- Preview pane ---- */
 #preview-pane{position:sticky;top:14px}
+/* Desktop (rule Hiếu 2026-09-14, giống tool pallet gỗ): trang KHÔNG cuộn - chỉ cột trái
+   (#main-left) cuộn nội bộ, cột phải (#preview-pane) đứng yên tại chỗ. */
+@media(min-width:981px){
+  html,body{height:100%}
+  body{display:flex;flex-direction:column;overflow:hidden}
+  header{flex:0 0 auto}
+  main{flex:1 1 auto;min-height:0;overflow:hidden;margin:18px auto 0;align-items:stretch}
+  #main-left{overflow-y:auto;height:100%;padding-bottom:18px}
+  #preview-pane{position:static;overflow-y:auto;height:100%;padding-bottom:18px}
+}
 .pv-tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
 .pv-tab{background:#EDEAE4;color:var(--dark);font-weight:600;font-size:13px;padding:8px 16px;border:1px solid var(--border);border-radius:6px 6px 0 0}
 .pv-tab.active{background:var(--dark);color:#fff;border-color:var(--dark)}
