@@ -195,10 +195,17 @@ const SHIP = {
   ghep: { min: 300000, rates: [[50, 1250], [100, 1000], [300, 600]] },
   nguyen: { min: 500000, rates: [[50, 1100], [100, 700], [300, 500]] },
 };
-const MARKUP = 1.2;
+// Hệ số bán = (mua + CP vận chuyển/SP) × MARKUP. Sales tự chọn Đơn hàng nhỏ (1.32)
+// hay Đơn hàng lớn (1.18) qua select #order-size (yêu cầu Hiếu 2026-09-14) - không có
+// ngưỡng tự động theo giá trị/số lượng. CP vận chuyển (km × Đơn giá VC) luôn là 1 bước
+// tính riêng, độc lập với lựa chọn này - dù tự chạy xe ICD hay thuê xe ngoài, Sales chỉ
+// cần điền đúng đơn giá/km thực tế; để trống thì CP vận chuyển = 0 (Mua × MARKUP).
+function currentMarkup() { return ($("order-size")?.value === "lon") ? 1.18 : 1.32; }
+let MARKUP = currentMarkup();
 const TICKED = new Set();
 
 function autoPrice(p) { // preview trong list (chưa gồm vận chuyển - cần km + SL mới tính được)
+  MARKUP = currentMarkup();
   if (p.price) return p.price;
   if (p.buyPrice) return Math.round(p.buyPrice * MARKUP);
   return 0;
@@ -267,6 +274,7 @@ async function calcDistance() {
 }
 
 function recomputePrices() {
+  MARKUP = currentMarkup();                                        // Đơn nhỏ ×1.32 / Đơn lớn ×1.18 (chọn ở #order-size)
   const km1 = Number($("distance").value) || 0;                   // km 1 chiều (kho HN -> khách), như ô nhập/geocode
   const legs = $("round-trip")?.checked ? 2 : 1;                  // tích "Khứ hồi" -> tính cước cả chiều về
   const km = km1 * legs;                                          // km dùng để TÍNH CƯỚC
@@ -309,7 +317,7 @@ function recomputePrices() {
   if ($("cross-tag")) $("cross-tag").style.display = anyCross ? "inline-block" : "none";
   $("status").textContent = over300
     ? "Trên 300 km mà chưa điền đơn giá/km: quy định yêu cầu liên hệ báo giá vận chuyển riêng - giá đang tính CHƯA gồm vận chuyển."
-    : (km > 0 && rateKm === 0 && totalVol === 0 && ITEMS.length ? "Các SP chưa có thể tích (m³): điền 'Đơn giá VC đ/km' để tính vận chuyển chia đều theo SL, hoặc giá = giá NSX × 1.2." : "");
+    : (km > 0 && rateKm === 0 && totalVol === 0 && ITEMS.length ? `Các SP chưa có thể tích (m³): điền 'Đơn giá VC đ/km' để tính vận chuyển chia đều theo SL, hoặc giá = giá NSX × ${MARKUP}.` : "");
   // Hộp thông tin phí vận chuyển (chỉ để tham khảo tại chỗ - KHÔNG in vào báo giá)
   const sInfo = $("ship-info");
   if (sInfo) {
@@ -333,7 +341,7 @@ function recomputePrices() {
       } else {
         h += `<b>Đơn giá VC:</b> đang để TRỐNG (mặc định) → chưa tính cước theo km. Nhập số vào ô "Đơn giá VC đ/km" (vd 10.000, 20.000) để tính phí.`;
       }
-      h += `<br><span style="color:#8a6d3b">Phí vận chuyển đã gộp sẵn vào đơn giá bán (×1.2) - KHÔNG hiện thành dòng riêng trên báo giá.</span>`;
+      h += `<br><span style="color:#8a6d3b">Phí vận chuyển đã gộp sẵn vào đơn giá bán (×${MARKUP}, theo loại đơn đang chọn) - KHÔNG hiện thành dòng riêng trên báo giá.</span>`;
       sInfo.innerHTML = h;
       sInfo.style.display = "block";
     }
