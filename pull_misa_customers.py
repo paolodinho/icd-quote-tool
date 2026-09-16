@@ -65,6 +65,10 @@ pics_seen = set()  # PIC (Chủ sở hữu MISA) thật gặp được trong d�
                     # dropdown PIC trên tool (rule Hiếu 2026-09-16: "đã kéo là phải kéo hết dữ
                     # liệu, up to date hết" - không để danh sách PIC hardcode lạc hậu khi có
                     # nhân sự mới được MISA gán "Chủ sở hữu" mà tool chưa biết).
+# Owner mặc định của khách chưa được admin sales chuyển quyền = người giữ MISA_CLIENT_SECRET
+# (chính Hiếu) - KHÔNG phải PIC thật, xác nhận Hiếu 2026-09-16. Loại khỏi cả "pic" từng khách
+# lẫn danh sách pics_seen, để không gán nhầm PIC cho khách thực ra chưa ai nhận.
+DEFAULT_OWNER = "Đỗ Xuân Hiếu (015)"
 for x in allc:
     name = (x.get("account_name") or "").strip()
     if not name: continue
@@ -73,6 +77,7 @@ for x in allc:
     tel = (x.get("office_tel") or "").strip()
     email = (x.get("office_email") or "").strip()
     owner = (x.get("owner_name") or "").strip()
+    if owner == DEFAULT_OWNER: owner = ""
     rec = {"code": tax or (x.get("account_code") or ""), "name": name}
     if addr: rec["address"] = addr
     if tel: rec["tel"] = tel; rec["mobile"] = tel
