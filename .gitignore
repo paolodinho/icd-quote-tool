@@ -3,6 +3,8 @@ templates/_backup/
 ._*
 data-private/
 data/*.bak-*
+__pycache__/
+*.pyc
 
 # bản mã test - chỉ push khi có mật khẩu thật
 data-enc.json
