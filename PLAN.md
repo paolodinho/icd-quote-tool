@@ -52,6 +52,39 @@
     Comment cron: `# icd-quote-misa-sync`. Verify: `crontab -l` trên VPS còn đủ 33 dòng (32
     dòng cũ + 1 dòng mới, không mất job nào khác).
   - Đã `git pull` lại về Mac local để đồng bộ (tránh lệch nhánh về sau khi VPS tự push).
+  - Đã dọn: 2 file `__pycache__/*.pyc` bị lọt vào git (không nhạy cảm, chỉ build artifact) -
+    đã `git rm --cached` + thêm `__pycache__/`, `*.pyc` vào `.gitignore`, đồng bộ cả 2 nơi.
+    Đã xác nhận lại toàn bộ dữ liệu thô (`data-private/` - khách hàng, giá vốn, credential
+    MISA) KHÔNG bao giờ track trong git, chỉ `data-enc.json` (mã hoá AES-256-GCM) lên public
+    repo - đúng yêu cầu bảo mật của Hiếu.
+- Đã xong (2026-09-16, cùng phiên - phát hiện từ ảnh chụp màn hình Hiếu gửi "PIC dropdown chưa
+  update" + "đã kéo là phải kéo hết dữ liệu up to date hết"): dropdown PIC trong tool tương tác
+  (`#m-pic`) trước đây là 5 option HARDCODE cứng trong `index.html`, không liên quan gì tới dữ
+  liệu MISA thật, và luôn mặc định "Le Van Thang" bất kể khách đó thực sự do ai phụ trách.
+  - Sửa `pull_misa_customers.py`: kéo thêm field `owner_name` ("Chủ sở hữu" MISA) của từng
+    khách hàng -> lưu vào mỗi record là `pic`, và gom danh sách tất cả PIC/Chủ sở hữu KHÁC NHAU
+    gặp được thành mảng `pics` ở top-level `customers.json`. Chạy thử thật: phát hiện **6 PIC
+    thật** đang tồn tại trên MISA (Le Van Thang 972 khách, Đỗ Thị Thanh Huyền 483, Đỗ Thị Thu
+    Trang 338, Nguyễn Thị Hồng 324 - nhưng owner_name thật là "Nguyễn Thị Hồng (NV000002)" khác
+    định dạng "Nguyễn Thị Hồng" hardcode cũ -, **Ngô Huyền (ngohuyen) 280 khách - nhân sự HOÀN
+    TOÀN MỚI chưa từng có trong dropdown**, Đỗ Xuân Hiếu (015) 203 - có thể là owner mặc định
+    của người giữ token API, chưa lọc bỏ vì không chắc chắn 100%, để nguyên cho an toàn hơn xoá
+    nhầm PIC thật).
+  - Sửa `build-enc.mjs`: đưa thêm `pics` vào payload mã hoá (trước đây chỉ có `products` +
+    `customers`, bỏ sót mọi field top-level khác của `customers.json`).
+  - Sửa `app.js`: thêm `mergePicOptions()` - sau khi giải mã xong, TỰ ĐỘNG thêm mọi PIC thật
+    trong `window.__DATA.pics` vào dropdown `#m-pic` nếu chưa có sẵn (chỉ thêm, không xoá option
+    cũ - an toàn, không mất lựa chọn nào Sales đang quen dùng). Thêm `"m-pic": c.pic` vào
+    `syncCustomerFields()` - khi Sales chọn 1 khách hàng đã có trong MISA, PIC tự nhảy đúng
+    người phụ trách thật thay vì luôn giữ mặc định.
+  - Đã verify bằng browser thật (server local, KHÔNG dùng cache cũ - phát hiện 1 lần bị false
+    negative do Chrome cache `app.js?v=20260719j` từ lần test trước, phải đổi cổng phục vụ mới
+    để chắc chắn không phải cache): dropdown sau khi mở khoá có đủ 8 option (5 cũ + 3 mới:
+    "Nguyễn Thị Hồng (NV000002)", "Ngô Huyền (ngohuyen)", "Đỗ Xuân Hiếu (015)"); chọn khách hàng
+    có PIC "Ngô Huyền (ngohuyen)" -> `#m-pic` tự nhảy đúng giá trị đó qua console.
+  - Đã commit + push (`7481a47`) + đồng bộ VPS (`git pull` tại `/opt/icd-price-sync/tool/`) để
+    lần cron kế tiếp (8h/11h/14h/17h) build ra `data-enc.json` có đủ field `pics` mới, không bị
+    bản code cũ trên VPS ghi đè thiếu.
 - Đang làm: (không còn)
 - Tiếp theo: Không có việc dở.
   - Nếu Hiếu muốn áp dụng tương tự 2 hệ số 1.32/1.18 cho `auto_quote.py` (tool tự động gửi báo
@@ -59,6 +92,9 @@
     chuyển/km) thì cần hỏi lại tiêu chí phân loại đơn lớn/nhỏ cho luồng tự động đó.
   - Muốn đổi tần suất cron kéo MISA (hiện 4 lần/ngày) -> sửa dòng `icd-quote-misa-sync` trong
     `crontab -e` trên VPS (`ssh -i ~/.ssh/icd_vps_automation root@45.251.115.47`).
+  - Chưa chắc chắn "Đỗ Xuân Hiếu (015)" trong danh sách PIC là owner mặc định (token holder,
+    không phải PIC thật) hay là gán thật cho Hiếu - nếu Hiếu xác nhận đó là rác/mặc định, có
+    thể lọc bỏ khỏi `pics_seen` trong `pull_misa_customers.py` (hiện đang GIỮ để an toàn).
 - File liên quan: `08-tools/quote-generator/index.html`, `08-tools/quote-generator/app.js`,
   `08-tools/quote-generator/pull_misa_customers.py`, `08-tools/quote-generator/sync-push.sh`,
   `08-tools/quote-generator/vps_sync_misa.sh` (mới). VPS: `/opt/icd-price-sync/tool/` (git
