@@ -61,6 +61,10 @@ if os.path.exists(PURCH):
             byName[norm(cst.get("name"))] = cst["purchases"]
 
 out, matched = [], 0
+pics_seen = set()  # PIC (Chủ sở hữu MISA) thật gặp được trong dữ liệu - dùng để tự cập nhật
+                    # dropdown PIC trên tool (rule Hiếu 2026-09-16: "đã kéo là phải kéo hết dữ
+                    # liệu, up to date hết" - không để danh sách PIC hardcode lạc hậu khi có
+                    # nhân sự mới được MISA gán "Chủ sở hữu" mà tool chưa biết).
 for x in allc:
     name = (x.get("account_name") or "").strip()
     if not name: continue
@@ -68,17 +72,21 @@ for x in allc:
     addr = (x.get("shipping_address") or x.get("billing_address") or "").strip()
     tel = (x.get("office_tel") or "").strip()
     email = (x.get("office_email") or "").strip()
+    owner = (x.get("owner_name") or "").strip()
     rec = {"code": tax or (x.get("account_code") or ""), "name": name}
     if addr: rec["address"] = addr
     if tel: rec["tel"] = tel; rec["mobile"] = tel
     if email: rec["email"] = email
+    if owner: rec["pic"] = owner; pics_seen.add(owner)
     ph = byTax.get(digits(tax)[:10]) or byName.get(norm(name))
     if ph: rec["purchases"] = ph; matched += 1
     out.append(rec)
 
 if os.path.exists(OUT):
     shutil.copy(OUT, OUT + ".bak-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-json.dump({"updated": datetime.date.today().isoformat(), "source": "misa-crm", "customers": out},
+json.dump({"updated": datetime.date.today().isoformat(), "source": "misa-crm",
+           "pics": sorted(pics_seen, key=lambda s: s.upper()), "customers": out},
           open(OUT, "w", encoding="utf-8"), ensure_ascii=False, indent=0)
 print(f"Misa CRM: {len(out)} khách ({sum(1 for r in out if r.get('address'))} có địa chỉ, "
-      f"{sum(1 for r in out if r.get('tel'))} SĐT, ghép {matched} lịch sử mua).")
+      f"{sum(1 for r in out if r.get('tel'))} SĐT, ghép {matched} lịch sử mua, "
+      f"{len(pics_seen)} PIC/Chủ sở hữu khác nhau: {', '.join(sorted(pics_seen)) or '(không có)'}).")

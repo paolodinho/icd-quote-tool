@@ -89,10 +89,29 @@ async function loadCatalog() {
     } catch (e) {}
   }
   renderCustList();
+  mergePicOptions((window.__DATA && Array.isArray(window.__DATA.pics)) ? window.__DATA.pics : []);
 }
 
 function renderCustList() {
   $("cust-list").innerHTML = CUSTOMERS.map((c) => `<option value="${(c.name || "").replace(/"/g, "&quot;")}">`).join("");
+}
+
+// Tự thêm vào dropdown PIC (#m-pic) những "Chủ sở hữu" MISA thật gặp được trong dữ liệu khách
+// vừa kéo về, mà CHƯA có sẵn trong danh sách hardcode ở index.html - không xoá option cũ, chỉ
+// bổ sung (rule Hiếu 2026-09-16: nhân sự mới được MISA gán "Chủ sở hữu" phải tự hiện ra, không
+// đợi sửa code tay mỗi lần có PIC mới).
+function mergePicOptions(pics) {
+  const sel = $("m-pic");
+  if (!sel || !pics.length) return;
+  const have = new Set([...sel.options].map((o) => o.value));
+  for (const p of pics) {
+    if (p && !have.has(p)) {
+      const opt = document.createElement("option");
+      opt.value = p; opt.textContent = p;
+      sel.appendChild(opt);
+      have.add(p);
+    }
+  }
 }
 
 /* Khách cũ: hiện lịch sử mua (từ công nợ Misa) + thêm nhanh vào báo giá với giá đã chốt */
@@ -124,6 +143,7 @@ function syncCustomerFields(c) {
     "c-tel": c.tel,
     "c-fax": c.fax,
     "m-destination": c.destination || c.noi_giao || c.address || c.diachi,
+    "m-pic": c.pic, // Chủ sở hữu MISA thật của khách này - ưu tiên hơn PIC mặc định đang chọn
   };
   let filled = false;
   for (const [id, val] of Object.entries(map)) {

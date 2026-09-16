@@ -18,9 +18,12 @@ if (!PASS || PASS.length < 4) { console.error("Thiếu mật khẩu (QUOTE_PASS 
 const products = JSON.parse(fs.readFileSync(path.join(HERE, "data-private/products-full.json"), "utf8")).products;
 const custRaw = JSON.parse(fs.readFileSync(path.join(HERE, "data-private/customers.json"), "utf8"));
 const customers = custRaw.customers || custRaw;
+// PIC (Chủ sở hữu MISA) thật gặp trong dữ liệu khách - dùng để tool tự thêm option mới vào
+// dropdown PIC (không xoá option cũ đã hardcode trong index.html - chỉ merge thêm).
+const pics = custRaw.pics || [];
 
 // payload KHÔNG kèm ngày (để hash ổn định khi data không đổi -> tránh push rác mỗi lần chạy)
-const payload = JSON.stringify({ products, customers });
+const payload = JSON.stringify({ products, customers, pics });
 const hashFile = path.join(HERE, "data-private", ".payload-hash");
 const curHash = crypto.createHash("sha256").update(payload).digest("hex");
 const force = process.argv.includes("--force");
@@ -46,4 +49,4 @@ const out = {
 };
 fs.writeFileSync(path.join(HERE, "data-enc.json"), JSON.stringify(out));
 fs.writeFileSync(hashFile, curHash);
-console.log(`Mã hóa xong: ${products.length} SP + ${customers.length} khách -> data-enc.json (${Math.round(out.ct.length/1024)}KB base64).`);
+console.log(`Mã hóa xong: ${products.length} SP + ${customers.length} khách + ${pics.length} PIC -> data-enc.json (${Math.round(out.ct.length/1024)}KB base64).`);
