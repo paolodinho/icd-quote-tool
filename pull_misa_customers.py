@@ -1,17 +1,27 @@
 #!/usr/bin/env python3
 # Kéo toàn bộ khách hàng từ Misa AMIS CRM -> data-private/customers.json (ghép lịch sử mua cũ).
-# Credentials: 09-crm-sales/bao-cao-icd-misa/.misa_api_env (MISA_CLIENT_ID/MISA_CLIENT_SECRET).
-# Chạy: python3 pull_misa_customers.py   (SSD phải mount)
+# Chạy được cả trên Mac (SSD mount) lẫn VPS (auto-sync cron, xem vps_sync_misa.sh cùng thư mục).
+# Credentials: dò lần lượt các ENV_CANDIDATES bên dưới, dùng file đầu tiên tồn tại.
 import os, re, json, sys, datetime, shutil
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ENV = "/Volumes/Extreme SSD/CÔNG VIỆC CỦA TÔI/Projects/ICD/09-crm-sales/bao-cao-icd-misa/.misa_api_env"
 OUT = os.path.join(HERE, "data-private", "customers.json")
 
-if not os.path.exists("/Volumes/Extreme SSD"):
-    print("SSD chưa mount - dừng."); sys.exit(0)
+# Dò credential theo môi trường đang chạy (không hardcode 1 path duy nhất - sự cố 2026-09-16:
+# path SSD cũ "CÔNG VIỆC CỦA TÔI" đã đổi từ 2026-08-11 sang "/Volumes/Extreme SSD/Projects/"
+# khiến script này crash im lặng, không ai phát hiện vì sync-push.sh vẫn "chạy xong" nhờ exit
+# code không được kiểm tra nghiêm ngặt trong set -e của bash khi lỗi xảy ra ở python).
+ENV_CANDIDATES = [
+    "/opt/icd-price-sync/misa.env",  # VPS - dùng chung credential với listener giá NCC Zalo
+    "/opt/icd-chatbot/.env",         # VPS fallback - key MISA_API_KEY làm secret
+    "/Volumes/Extreme SSD/Projects/ICD/09-crm-sales/bao-cao-icd-misa/.misa_api_env",  # Mac local
+]
+ENV = next((p for p in ENV_CANDIDATES if os.path.exists(p)), None)
+if not ENV:
+    print("Không tìm thấy file credential MISA nào trong:\n  " + "\n  ".join(ENV_CANDIDATES) + "\n- dừng.")
+    sys.exit(1)
 
-# đọc credentials từ .misa_api_env
+# đọc credentials từ ENV đã dò được
 cid = sec = base = None
 for line in open(ENV, encoding="utf-8"):
     line = line.strip()
@@ -21,7 +31,7 @@ for line in open(ENV, encoding="utf-8"):
     elif line.startswith("MISA_BASE_URL="): base = line.split("=", 1)[1].strip()
 base = base or "https://crmconnect.misa.vn/api/v2"
 if not cid or not sec:
-    print("Thiếu MISA_CLIENT_ID/SECRET - dừng."); sys.exit(1)
+    print(f"Thiếu MISA_CLIENT_ID/SECRET trong {ENV} - dừng."); sys.exit(1)
 
 import httpx
 with httpx.Client(timeout=30) as c:

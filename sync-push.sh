@@ -2,7 +2,7 @@
 # Đồng bộ tool báo giá lên link: kéo khách Misa CRM -> mã hóa lại data-enc.json -> push GitHub.
 # Chạy SAU khi đã cập nhật giá SP từ Zalo (products-full.json). SSD phải mount.
 set -e
-DIR="/Volumes/Extreme SSD/CÔNG VIỆC CỦA TÔI/Projects/ICD/08-tools/quote-generator"
+DIR="/Volumes/Extreme SSD/Projects/ICD/08-tools/quote-generator"
 cd "$DIR"
 [ -d "/Volumes/Extreme SSD" ] || { echo "SSD chưa mount - dừng."; exit 0; }
 
