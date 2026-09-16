@@ -31,11 +31,36 @@
   giữ nguyên 0; `main` computed height co đúng về ~624px (bằng viewport) thay vì phình theo
   content.
   Đã commit + push riêng: layout fix (`8446529`) sau breakpoint+công thức giá cũ.
+- Đã xong (2026-09-16, cùng phiên): đặt lịch VPS tự kéo dữ liệu khách hàng MISA CRM cho tool
+  báo giá tương tác, theo yêu cầu Hiếu ("luôn update dữ liệu từ CRM MISA, đặt lịch cho VPS auto
+  kéo dữ liệu"). Phát hiện + xử lý:
+  - Bug gốc: `pull_misa_customers.py` hardcode 1 đường dẫn credential SSD cũ
+    (`.../CÔNG VIỆC CỦA TÔI/Projects/ICD/09-crm-sales/...`) đã đổi từ 2026-08-11 -> script
+    crash im lặng, `sync-push.sh` (chạy tay trên Mac) không hề kéo khách mới từ lâu.
+    `sync-push.sh` cũng còn path cũ tương tự (biến `DIR`). Đã sửa cả 2: `pull_misa_customers.py`
+    giờ dò credential theo danh sách `ENV_CANDIDATES` (VPS: `/opt/icd-price-sync/misa.env` hoặc
+    `/opt/icd-chatbot/.env`; Mac: path SSD mới), không phụ thuộc 1 nơi cố định.
+  - Phát hiện `/opt/icd-price-sync/tool/` trên VPS đã sẵn là 1 bản git clone đầy đủ của repo
+    `paolodinho/icd-quote-tool` (dùng cho listener giá NCC Zalo `price_parser.py` tự cập nhật
+    `data-private/products-full.json` liên tục) - tận dụng LUÔN thư mục này cho việc pull MISA
+    khách hàng, không tạo deploy riêng.
+  - Tạo `vps_sync_misa.sh` (mới, cùng thư mục repo): git pull -> `pull_misa_customers.py` ->
+    `node build-enc.mjs` -> git commit + push nếu có đổi. Đã test chạy tay trên VPS thành công:
+    kéo 2601 khách + 1052 SP -> `data-enc.json` 1089KB -> push commit `1434637` lên GitHub.
+  - Đã đặt cron VPS: `0 8,11,14,17 * * *` (4 lần/ngày giờ hành chính: 8h/11h/14h/17h) gọi
+    `/opt/icd-price-sync/tool/vps_sync_misa.sh`, log ra `vps-sync-misa.log` cùng thư mục.
+    Comment cron: `# icd-quote-misa-sync`. Verify: `crontab -l` trên VPS còn đủ 33 dòng (32
+    dòng cũ + 1 dòng mới, không mất job nào khác).
+  - Đã `git pull` lại về Mac local để đồng bộ (tránh lệch nhánh về sau khi VPS tự push).
 - Đang làm: (không còn)
-- Tiếp theo: Không có việc dở. Nếu Hiếu muốn áp dụng tương tự 2 hệ số 1.32/1.18 cho
-  `auto_quote.py` (tool tự động gửi báo giá theo Cơ hội/MISA, hiện vẫn dùng hệ số cố định
-  1.324, không có khái niệm vận chuyển/km) thì cần hỏi lại tiêu chí phân loại đơn lớn/nhỏ cho
-  luồng tự động đó (không có bước Sales bấm chọn tay như tool tương tác).
-- File liên quan: `08-tools/quote-generator/index.html`, `08-tools/quote-generator/app.js`
-  (KHÔNG đụng `auto_quote.py`).
+- Tiếp theo: Không có việc dở.
+  - Nếu Hiếu muốn áp dụng tương tự 2 hệ số 1.32/1.18 cho `auto_quote.py` (tool tự động gửi báo
+    giá theo Cơ hội/MISA, hiện vẫn dùng hệ số cố định 1.324, không có khái niệm vận
+    chuyển/km) thì cần hỏi lại tiêu chí phân loại đơn lớn/nhỏ cho luồng tự động đó.
+  - Muốn đổi tần suất cron kéo MISA (hiện 4 lần/ngày) -> sửa dòng `icd-quote-misa-sync` trong
+    `crontab -e` trên VPS (`ssh -i ~/.ssh/icd_vps_automation root@45.251.115.47`).
+- File liên quan: `08-tools/quote-generator/index.html`, `08-tools/quote-generator/app.js`,
+  `08-tools/quote-generator/pull_misa_customers.py`, `08-tools/quote-generator/sync-push.sh`,
+  `08-tools/quote-generator/vps_sync_misa.sh` (mới). VPS: `/opt/icd-price-sync/tool/` (git
+  clone dùng chung với listener giá), crontab root@45.251.115.47. KHÔNG đụng `auto_quote.py`.
 - Cập nhật lúc: 2026-09-16 (giờ hệ thống hiện tại)
